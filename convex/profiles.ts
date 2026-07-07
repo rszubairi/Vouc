@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
+import { requireAdmin } from "./adminAuth";
 
 // Get the currently authenticated user's profile.
 export const me = query({
@@ -298,10 +299,71 @@ export const requestDeleteAccount = mutation({
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
-      .query("profiles")
-      .filter((q) => q.eq(q.field("deleteAccount"), false))
-      .collect();
+    await requireAdmin(ctx);
+    const profiles = await ctx.db.query("profiles").order("desc").take(1000);
+    return profiles.filter((p) => !p.deleteAccount);
+  },
+});
+
+// Admin-wide view of every profile awaiting sponsor approval.
+export const adminPendingApprovals = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const profiles = await ctx.db.query("profiles").order("desc").take(1000);
+    const pending = profiles.filter((p) => !p.sponsorApproved && !p.deleteAccount);
+
+    const sponsors = await Promise.all(
+      pending.map((p) => (p.sponsorId ? ctx.db.get(p.sponsorId) : null))
+    );
+
+    return pending.map((p, i) => ({
+      ...p,
+      sponsorName: sponsors[i]?.nickName ?? "—",
+    }));
+  },
+});
+
+// Admin approves a pending profile regardless of who the sponsor is.
+export const adminApprove = mutation({
+  args: { profileId: v.id("profiles") },
+  handler: async (ctx, { profileId }) => {
+    await requireAdmin(ctx);
+    await ctx.db.patch(profileId, { sponsorApproved: true });
+    await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId });
+  },
+});
+
+// Admin rejects (soft-deletes) a pending profile.
+export const adminReject = mutation({
+  args: { profileId: v.id("profiles") },
+  handler: async (ctx, { profileId }) => {
+    await requireAdmin(ctx);
+    await ctx.db.patch(profileId, {
+      deleteAccount: true,
+      deleteRequestDate: Date.now(),
+    });
+  },
+});
+
+// Admin toggles a profile's full-access flag.
+export const adminSetFullAccess = mutation({
+  args: { profileId: v.id("profiles"), fullAccess: v.boolean() },
+  handler: async (ctx, { profileId, fullAccess }) => {
+    await requireAdmin(ctx);
+    await ctx.db.patch(profileId, { fullAccess });
+  },
+});
+
+// Admin soft-deletes any profile.
+export const adminDeleteProfile = mutation({
+  args: { profileId: v.id("profiles") },
+  handler: async (ctx, { profileId }) => {
+    await requireAdmin(ctx);
+    await ctx.db.patch(profileId, {
+      deleteAccount: true,
+      deleteRequestDate: Date.now(),
+    });
   },
 });
 

@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
+import { requireAdmin } from "./adminAuth";
 
 async function getCallerProfile(ctx: any) {
   const authUserId = await getAuthUserId(ctx);
@@ -284,5 +285,45 @@ export const deleteEvent = mutation({
     if (!event) throw new Error("Event not found");
     if (event.userId !== profile._id) throw new Error("Not authorized");
     await ctx.db.patch(eventId, { isDeleted: true });
+  },
+});
+
+// ─── Admin ──────────────────────────────────────────────────────────────────
+
+export const adminList = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const events = await ctx.db.query("events").order("desc").take(500);
+    const creators = await Promise.all(events.map((e) => ctx.db.get(e.userId)));
+    return events.map((e, i) => ({
+      ...e,
+      creatorName: creators[i]?.nickName ?? "Unknown",
+    }));
+  },
+});
+
+export const adminUpdate = mutation({
+  args: {
+    id: v.id("events"),
+    title: v.string(),
+    eventType: v.string(),
+    details: v.string(),
+    speaker: v.optional(v.string()),
+    eventDateStart: v.number(),
+    eventDateEnd: v.number(),
+    isDeleted: v.boolean(),
+  },
+  handler: async (ctx, { id, ...rest }) => {
+    await requireAdmin(ctx);
+    await ctx.db.patch(id, rest);
+  },
+});
+
+export const adminDelete = mutation({
+  args: { id: v.id("events") },
+  handler: async (ctx, { id }) => {
+    await requireAdmin(ctx);
+    await ctx.db.delete(id);
   },
 });

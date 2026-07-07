@@ -52,6 +52,7 @@ export default defineSchema(
       tiktok: v.optional(v.string()),
       discord: v.optional(v.string()),
       weChat: v.optional(v.string()),
+      isAdmin: v.optional(v.boolean()), // grants access to the /dashboard admin console
     })
       .index("by_userId", ["userId"])
       .index("by_email", ["emailAddress"])

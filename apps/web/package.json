@@ -10,6 +10,7 @@
   "dependencies": {
     "@convex-dev/auth": "^0.0.94",
     "@fortawesome/fontawesome-svg-core": "^7.3.0",
+    "@fortawesome/free-brands-svg-icons": "^7.3.0",
     "@fortawesome/free-solid-svg-icons": "^7.3.0",
     "@fortawesome/react-fontawesome": "^3.3.1",
     "convex": "^1.12.0",

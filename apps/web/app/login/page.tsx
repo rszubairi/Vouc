@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { StoreBadges } from "../../components/StoreBadges";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,7 +46,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#1C1B18] px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#1C1B18] px-4 py-10">
       <div className="w-full max-w-sm bg-[#242219] border border-[#C9A227]/20 rounded-xl p-8 shadow-xl">
         <h1 className="text-2xl font-bold text-[#C9A227] mb-1">Vouch Admin</h1>
         <p className="text-sm text-[#F5EFE0]/60 mb-6">
@@ -134,6 +136,20 @@ export default function LoginPage() {
               : "Already have an account? Sign in"}
           </button>
         )}
+      </div>
+
+      <div className="w-full max-w-sm mt-8 flex flex-col items-center gap-4">
+        <p className="text-xs text-[#F5EFE0]/40">Get the Vouch mobile app</p>
+        <StoreBadges />
+        <p className="text-xs text-[#F5EFE0]/40 flex items-center gap-2">
+          <Link href="/privacy-policy" className="hover:text-[#C9A227] transition-colors">
+            Privacy Policy
+          </Link>
+          <span>&middot;</span>
+          <Link href="/terms-of-service" className="hover:text-[#C9A227] transition-colors">
+            Terms &amp; Conditions
+          </Link>
+        </p>
       </div>
     </div>
   );

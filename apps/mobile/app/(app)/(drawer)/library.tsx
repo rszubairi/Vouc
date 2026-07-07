@@ -3,14 +3,20 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   Image,
+  RefreshControl,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id } from "../../../../../convex/_generated/dataModel";
+import { useMemo, useState } from "react";
+import { usePullReveal } from "../../../hooks/usePullReveal";
+import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -18,17 +24,54 @@ export default function LibraryScreen() {
   const items = useQuery(api.library.listItems, {
     categoryId: categoryId as Id<"categories"> | undefined,
   });
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
+  useHeaderSearchButton(searchVisible, toggleSearch);
+
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (item) =>
+        item.title?.toLowerCase().includes(q) ||
+        item.description?.toLowerCase().includes(q) ||
+        item.creatorNickName?.toLowerCase().includes(q)
+    );
+  }, [items, search]);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }
 
   return (
     <View style={styles.container}>
+      {searchVisible && (
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.search}
+            placeholder="Search library items"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+        </View>
+      )}
+
       {items === undefined ? (
         <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#1C1B18" />
       ) : (
         <FlashList
-          data={items}
+          data={filteredItems}
           keyExtractor={(item) => item._id}
           estimatedItemSize={100}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
@@ -76,6 +119,23 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f4f4f8" },
   list: { padding: 12, paddingBottom: 80 },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    gap: 8,
+  },
+  search: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
+  },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,

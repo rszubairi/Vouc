@@ -29,11 +29,7 @@ function ImageCarousel({ images }: { images: string[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (images.length === 0) {
-    return (
-      <View style={[styles.carouselPlaceholder, { width: carouselWidth }]}>
-        <Ionicons name="image-outline" size={36} color="#C9A227" />
-      </View>
-    );
+    return null;
   }
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -74,7 +70,7 @@ function ImageCarousel({ images }: { images: string[] }) {
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const post = useQuery(api.posts.getPost, { postId: id as Id<"posts"> });
+  const post = useQuery(api.posts.getPost, id ? { postId: id as Id<"posts"> } : "skip");
   const engage = useMutation(api.posts.engage);
   const deletePost = useMutation(api.posts.deletePost);
   const markRead = useMutation(api.posts.markRead);
@@ -293,14 +289,6 @@ const styles = StyleSheet.create({
   body: { fontSize: 16, color: "#222", lineHeight: 24, marginBottom: 14 },
   image: { height: 220, borderRadius: 10 },
   carouselContainer: { marginBottom: 12 },
-  carouselPlaceholder: {
-    height: 220,
-    borderRadius: 10,
-    marginBottom: 12,
-    backgroundColor: "#F5EFE0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",

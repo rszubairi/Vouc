@@ -1,15 +1,26 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
-import { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { useMemo, useState } from "react";
 import { Calendar } from "react-native-calendars";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { useRouter } from "expo-router";
+import { usePullReveal } from "../../../hooks/usePullReveal";
+import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
 export default function CalendarScreen() {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
+  useHeaderSearchButton(searchVisible, toggleSearch);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }
 
   const startOfMonth = new Date(selectedDate);
   startOfMonth.setDate(1);
@@ -39,9 +50,20 @@ export default function CalendarScreen() {
     markedDates[selectedDate] = { selected: true, selectedColor: "#1C1B18" };
   }
 
-  const dayEvents = events?.filter(
-    (e) => new Date(e.eventDateStart).toISOString().split("T")[0] === selectedDate
-  ) ?? [];
+  const dayEvents = useMemo(() => {
+    const forDay =
+      events?.filter(
+        (e) => new Date(e.eventDateStart).toISOString().split("T")[0] === selectedDate
+      ) ?? [];
+    const q = search.trim().toLowerCase();
+    if (!q) return forDay;
+    return forDay.filter(
+      (e) =>
+        e.title?.toLowerCase().includes(q) ||
+        e.speaker?.toLowerCase().includes(q) ||
+        e.eventType?.toLowerCase().includes(q)
+    );
+  }, [events, selectedDate, search]);
 
   return (
     <View style={styles.container}>
@@ -55,7 +77,13 @@ export default function CalendarScreen() {
         }}
       />
 
-      <ScrollView style={styles.eventList} contentContainerStyle={styles.eventListContent}>
+      <ScrollView
+        style={styles.eventList}
+        contentContainerStyle={styles.eventListContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
+        }
+      >
         <Text style={styles.dateHeader}>
           {new Date(selectedDate + "T00:00:00").toLocaleDateString(undefined, {
             weekday: "long",
@@ -63,6 +91,17 @@ export default function CalendarScreen() {
             day: "numeric",
           })}
         </Text>
+
+        {searchVisible && (
+          <TextInput
+            style={styles.search}
+            placeholder="Search events"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+        )}
 
         {events === undefined ? (
           <ActivityIndicator color="#1C1B18" style={{ marginTop: 20 }} />
@@ -114,6 +153,16 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   noEvents: { color: "#888", fontSize: 15 },
+  search: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
+    marginBottom: 14,
+  },
   eventCard: {
     backgroundColor: "#fff",
     borderRadius: 12,

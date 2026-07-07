@@ -7,12 +7,15 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl,
 } from "react-native";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "../../../../../convex/_generated/api";
+import { Id } from "../../../../../convex/_generated/dataModel";
 import { useRouter } from "expo-router";
+import { usePullReveal } from "../../../hooks/usePullReveal";
+import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
 function formatMemberSince(creationTime: number) {
   return new Date(creationTime).toLocaleDateString(undefined, {
@@ -29,6 +32,14 @@ export default function NetworkScreen() {
   const approveSponsor = useMutation(api.profiles.approveSponsor);
   const [search, setSearch] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
+  useHeaderSearchButton(searchVisible, toggleSearch);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }
 
   const directory = useMemo(() => {
     if (!all) return [];
@@ -63,6 +74,9 @@ export default function NetworkScreen() {
       contentContainerStyle={styles.list}
       data={directory}
       keyExtractor={(p) => p._id}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
+      }
       ListHeaderComponent={
         <View>
           {pending.length > 0 && (
@@ -95,13 +109,16 @@ export default function NetworkScreen() {
           )}
 
           <Text style={styles.sectionTitle}>Directory</Text>
-          <TextInput
-            style={styles.search}
-            placeholder="Search by name, city, or country"
-            placeholderTextColor="#999"
-            value={search}
-            onChangeText={setSearch}
-          />
+          {searchVisible && (
+            <TextInput
+              style={styles.search}
+              placeholder="Search by name, city, or country"
+              placeholderTextColor="#999"
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+            />
+          )}
         </View>
       }
       renderItem={({ item }) => (

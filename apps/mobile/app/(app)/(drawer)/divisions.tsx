@@ -1,28 +1,70 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from "react-native";
-import { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, FlatList, RefreshControl } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { useRouter } from "expo-router";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id } from "../../../../../convex/_generated/dataModel";
+import { usePullReveal } from "../../../hooks/usePullReveal";
+import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
 export default function DivisionsScreen() {
   const router = useRouter();
   const divisions = useQuery(api.library.listDivisions, {});
   const categories = useQuery(api.library.listCategories, {});
   const [expanded, setExpanded] = useState<Id<"divisions"> | null>(null);
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
+  useHeaderSearchButton(searchVisible, toggleSearch);
+
+  const sortedDivisions = useMemo(() => {
+    if (!divisions) return [];
+    return [...divisions].sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [divisions]);
+
+  const filteredDivisions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return sortedDivisions;
+    return sortedDivisions.filter((d) => {
+      if (d.name.toLowerCase().includes(q)) return true;
+      return (categories ?? []).some(
+        (c) => c.divisionId === d._id && c.name.toLowerCase().includes(q)
+      );
+    });
+  }, [sortedDivisions, categories, search]);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }
 
   if (divisions === undefined || categories === undefined) {
     return <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#1C1B18" />;
   }
 
-  const sortedDivisions = [...divisions].sort((a, b) => a.displayOrder - b.displayOrder);
-
   return (
-    <FlatList
-      style={styles.container}
+    <View style={styles.container}>
+      {searchVisible && (
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.search}
+            placeholder="Search divisions or categories"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+        </View>
+      )}
+      <FlatList
+      style={{ flex: 1 }}
       contentContainerStyle={styles.list}
-      data={sortedDivisions}
+      data={filteredDivisions}
       keyExtractor={(d) => d._id}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
+      }
       ListEmptyComponent={
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No divisions yet.</Text>
@@ -75,13 +117,32 @@ export default function DivisionsScreen() {
           </View>
         );
       }}
-    />
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f4f4f8" },
   list: { padding: 12, paddingBottom: 40 },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    backgroundColor: "#f4f4f8",
+    gap: 8,
+  },
+  search: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
+  },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,

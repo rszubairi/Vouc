@@ -3,6 +3,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   RefreshControl,
   Share,
@@ -14,7 +15,10 @@ import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useQuery } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
+import { useMemo, useState } from "react";
+import { usePullReveal } from "../../../hooks/usePullReveal";
+import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
 type FeedPost = {
   _id: string;
@@ -86,17 +90,13 @@ function PostCard({ post }: { post: FeedPost }) {
       {isLong && <Text style={styles.readMore}>Read more</Text>}
 
       {/* Image */}
-      {post.images.length > 0 ? (
+      {post.images.length > 0 && (
         <Image
           source={{ uri: post.images[0] }}
           style={styles.image}
           contentFit="cover"
           transition={200}
         />
-      ) : (
-        <View style={styles.imagePlaceholder}>
-          <Ionicons name="image-outline" size={32} color="#C9A227" />
-        </View>
       )}
 
       {/* Engagement bar */}
@@ -134,18 +134,55 @@ function PostCard({ post }: { post: FeedPost }) {
 export default function FeedScreen() {
   const router = useRouter();
   const posts = useQuery(api.posts.feed, { limit: 30 });
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
+  useHeaderSearchButton(searchVisible, toggleSearch);
+
+  const filteredPosts = useMemo(() => {
+    if (!posts) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return posts;
+    return posts.filter(
+      (p) =>
+        p.topic?.toLowerCase().includes(q) ||
+        p.details?.toLowerCase().includes(q) ||
+        p.creatorNickName?.toLowerCase().includes(q)
+    );
+  }, [posts, search]);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }
 
   return (
     <View style={styles.container}>
+      {searchVisible && (
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.search}
+            placeholder="Search posts"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+        </View>
+      )}
+
       {posts === undefined ? (
         <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />
       ) : (
         <FlashList
-          data={posts}
+          data={filteredPosts}
           keyExtractor={(item) => item._id}
           estimatedItemSize={180}
           renderItem={({ item }) => <PostCard post={item as FeedPost} />}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyText}>No posts yet.</Text>
@@ -172,6 +209,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f4f4f8" },
   loader: { flex: 1, marginTop: 60 },
   list: { padding: 12 },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    backgroundColor: "#f4f4f8",
+    gap: 8,
+  },
+  search: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
+  },
   card: {
     backgroundColor: "#fff",
     borderRadius: 14,
@@ -201,15 +256,6 @@ const styles = StyleSheet.create({
   body: { fontSize: 15, color: "#333", lineHeight: 22 },
   readMore: { color: "#1C1B18", fontSize: 13, fontWeight: "600", marginTop: 4 },
   image: { width: "100%", height: 200, borderRadius: 10, marginTop: 12 },
-  imagePlaceholder: {
-    width: "100%",
-    height: 140,
-    borderRadius: 10,
-    marginTop: 12,
-    backgroundColor: "#F5EFE0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   engagementRow: {
     flexDirection: "row",
     alignItems: "center",

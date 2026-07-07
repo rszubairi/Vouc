@@ -36,7 +36,7 @@ function formatMemberSince(creationTime: number) {
 
 export default function MemberProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const profile = useQuery(api.profiles.getById, { profileId: id as Id<"profiles"> });
+  const profile = useQuery(api.profiles.getById, id ? { profileId: id as Id<"profiles"> } : "skip");
 
   if (profile === undefined) {
     return <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />;

@@ -18,7 +18,7 @@ export default function LibraryItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const me = useQuery(api.profiles.me);
-  const item = useQuery(api.library.getItem, { itemId: id as Id<"libraryItems"> });
+  const item = useQuery(api.library.getItem, id ? { itemId: id as Id<"libraryItems"> } : "skip");
   const deleteLibraryItem = useMutation(api.library.deleteLibraryItem);
 
   if (item === undefined || me === undefined) {

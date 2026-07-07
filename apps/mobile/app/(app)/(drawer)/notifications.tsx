@@ -3,19 +3,43 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { useRouter } from "expo-router";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id } from "../../../../../convex/_generated/dataModel";
+import { useMemo, useState } from "react";
+import { usePullReveal } from "../../../hooks/usePullReveal";
+import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const notifications = useQuery(api.notifications.myNotifications, { limit: 50 });
   const markRead = useMutation(api.notifications.markRead);
   const markAllRead = useMutation(api.notifications.markAllRead);
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
+  useHeaderSearchButton(searchVisible, toggleSearch);
+
+  const filteredNotifications = useMemo(() => {
+    if (!notifications) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return notifications;
+    return notifications.filter(
+      (n) =>
+        n.subject?.toLowerCase().includes(q) || n.message?.toLowerCase().includes(q)
+    );
+  }, [notifications, search]);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }
 
   async function handleTap(n: any) {
     if (!n.isRead) await markRead({ notificationId: n._id });
@@ -29,14 +53,27 @@ export default function NotificationsScreen() {
       <TouchableOpacity style={styles.markAllBtn} onPress={() => markAllRead()}>
         <Text style={styles.markAllText}>Mark all as read</Text>
       </TouchableOpacity>
+      {searchVisible && (
+        <TextInput
+          style={styles.search}
+          placeholder="Search notifications"
+          placeholderTextColor="#999"
+          value={search}
+          onChangeText={setSearch}
+          autoFocus
+        />
+      )}
 
       {notifications === undefined ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#1C1B18" />
       ) : (
         <FlashList
-          data={notifications}
+          data={filteredNotifications}
           keyExtractor={(n) => n._id}
           estimatedItemSize={70}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
+          }
           renderItem={({ item: n }) => (
             <TouchableOpacity
               style={[styles.item, !n.isRead && styles.itemUnread]}
@@ -71,6 +108,17 @@ const styles = StyleSheet.create({
   markAllBtn: { padding: 14, alignItems: "flex-end", paddingRight: 16 },
   markAllText: { color: "#1C1B18", fontWeight: "600", fontSize: 13 },
   list: { paddingBottom: 24 },
+  search: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
+    marginHorizontal: 12,
+    marginBottom: 12,
+  },
   item: {
     flexDirection: "row",
     alignItems: "flex-start",

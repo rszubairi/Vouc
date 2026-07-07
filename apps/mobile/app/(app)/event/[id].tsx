@@ -19,7 +19,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const me = useQuery(api.profiles.me);
-  const event = useQuery(api.events.getEvent, { eventId: id as Id<"events"> });
+  const event = useQuery(api.events.getEvent, id ? { eventId: id as Id<"events"> } : "skip");
   const rsvp = useMutation(api.events.rsvpEvent);
   const deleteEvent = useMutation(api.events.deleteEvent);
 

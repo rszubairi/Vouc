@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 
 export default function ProfilesPage() {
   const profiles = useQuery(api.profiles.listAll);

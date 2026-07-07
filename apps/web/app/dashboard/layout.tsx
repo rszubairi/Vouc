@@ -15,7 +15,7 @@ import {
   faGear,
   faEnvelope,
 } from "@fortawesome/free-solid-svg-icons";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: faGaugeHigh },

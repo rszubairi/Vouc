@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Vouch",
+    "slug": "oolala",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.oolala.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1C1B18"
+      },
+      "package": "com.oolala.app",
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#050505",
+          "dark": {
+            "backgroundColor": "#050505"
+          }
+        }
+      ]
+    ],
+    "scheme": "oolala",
+    "extra": {
+      "convexUrl": "https://lovely-mole-559.eu-west-1.convex.cloud",
+      "eas": {
+        "projectId": "172d120e-34ef-46de-bb87-12a2773b5f7b"
+      },
+      "router": {}
+    }
+  }
+}

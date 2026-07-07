@@ -1,0 +1,22 @@
+{
+  "name": "oolala-migration",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "migrate": "tsx migrate.ts",
+    "dry-run": "tsx migrate.ts --dry-run",
+    "verify": "tsx migrate.ts --verify",
+    "cleanup": "tsx cleanup-sqlids.ts"
+  },
+  "dependencies": {
+    "convex": "^1.12.0",
+    "mssql": "^11.0.1",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/mssql": "^9.1.5",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

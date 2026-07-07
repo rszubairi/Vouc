@@ -1,0 +1,27 @@
+{
+  "name": "oolala-rn",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "apps/web"
+  ],
+  "scripts": {
+    "mobile": "npm -w apps/mobile start",
+    "web": "npm -w apps/web dev",
+    "convex:dev": "npx convex dev",
+    "convex:deploy": "npx convex deploy"
+  },
+  "devDependencies": {
+    "convex": "^1.42.1"
+  },
+  "dependencies": {
+    "@auth/core": "^0.41.2",
+    "@convex-dev/auth": "^0.0.94",
+    "expo-constants": "^57.0.2",
+    "expo-linking": "^56.0.14",
+    "expo-splash-screen": "^57.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-native-worklets": "^0.8.0"
+  }
+}

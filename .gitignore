@@ -1,0 +1,26 @@
+
+node_modules/
+.env.local
+.env
+
+# build output
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# expo / react native
+.expo/
+android/app/build/
+android/build/
+ios/build/
+
+# convex
+.convex/
+
+# misc
+.DS_Store
+
+# migration data/logs
+migration/export/
+migration/*.log

@@ -295,6 +295,18 @@ export const requestDeleteAccount = mutation({
   },
 });
 
+// Get list of all profiles for network browsing (any signed-in user).
+export const listDirectory = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) throw new Error("Not authenticated");
+
+    const profiles = await ctx.db.query("profiles").order("desc").take(1000);
+    return profiles.filter((p) => !p.deleteAccount);
+  },
+});
+
 // Get list of all profiles (admin use).
 export const listAll = query({
   args: {},

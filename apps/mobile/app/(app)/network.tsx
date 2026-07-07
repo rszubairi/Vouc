@@ -25,7 +25,7 @@ export default function NetworkScreen() {
   const router = useRouter();
   const me = useQuery(api.profiles.me);
   const pending = useQuery(api.profiles.pendingApprovals, {});
-  const all = useQuery(api.profiles.listAll, {});
+  const all = useQuery(api.profiles.listDirectory, {});
   const approveSponsor = useMutation(api.profiles.approveSponsor);
   const [search, setSearch] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);

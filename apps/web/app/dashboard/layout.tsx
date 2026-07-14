@@ -69,16 +69,16 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-60 bg-gradient-to-b from-black via-[#141414] to-black text-[#F2650C] flex flex-col shrink-0">
-        <div className="px-6 py-5 border-b border-[#F2650C]/20">
-          <h1 className="text-xl font-bold tracking-tight text-[#F2650C]">Vouch</h1>
+      <aside className="w-60 bg-[#F5EFE0] text-black flex flex-col shrink-0">
+        <div className="px-6 py-5 border-b border-black/10">
+          <h1 className="text-xl font-bold tracking-tight text-black">Vouch</h1>
         </div>
 
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-[#F2650C]/20">
-          <div className="w-10 h-10 rounded-full bg-[#F2650C]/20 border border-[#F2650C]/40 flex items-center justify-center text-[#F2650C] font-semibold">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10">
+          <div className="w-10 h-10 rounded-full bg-black/10 border border-black/20 flex items-center justify-center text-black font-semibold">
             {me?.nickName?.[0]?.toUpperCase() ?? "?"}
           </div>
-          <span className="text-sm font-medium truncate text-[#F5EFE0]">{me?.nickName ?? "Admin"}</span>
+          <span className="text-sm font-medium truncate text-black">{me?.nickName ?? "Admin"}</span>
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto">
@@ -92,8 +92,8 @@ export default function DashboardLayout({
                 href={item.href}
                 className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-colors ${
                   isActive
-                    ? "bg-[#F5EFE0] text-black"
-                    : "text-[#F2650C]/80 hover:bg-[#F2650C]/10 hover:text-[#F2650C]"
+                    ? "bg-black text-[#F5EFE0]"
+                    : "text-black/70 hover:bg-black/10 hover:text-black"
                 }`}
               >
                 <FontAwesomeIcon icon={item.icon} className="w-4 h-4" />
@@ -102,10 +102,10 @@ export default function DashboardLayout({
             );
           })}
         </nav>
-        <div className="px-6 py-4 border-t border-[#F2650C]/20">
+        <div className="px-6 py-4 border-t border-black/10">
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-2 text-xs text-[#F2650C]/60 hover:text-[#F2650C] transition-colors"
+            className="flex items-center gap-2 text-xs text-black/60 hover:text-black transition-colors"
           >
             <FontAwesomeIcon icon={faRightFromBracket} className="w-3.5 h-3.5" />
             Sign out

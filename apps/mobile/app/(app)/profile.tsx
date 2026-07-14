@@ -214,12 +214,12 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   content: { padding: 20, paddingBottom: 60 },
   avatarSection: { alignItems: "center", marginBottom: 24 },
   avatar: { width: 88, height: 88, borderRadius: 44 },
   avatarPlaceholder: { backgroundColor: "#1C1B18", alignItems: "center", justifyContent: "center" },
-  avatarInitial: { color: "#C9A227", fontSize: 32, fontWeight: "700" },
+  avatarInitial: { color: "#F2650C", fontSize: 32, fontWeight: "700" },
   avatarBadge: {
     position: "absolute",
     bottom: 0,
@@ -227,11 +227,11 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#C9A227",
+    backgroundColor: "#F2650C",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#f4f4f8",
+    borderColor: "#FAF5EA",
   },
   avatarHint: { fontSize: 12, color: "#888", marginTop: 10 },
   label: { fontSize: 13, fontWeight: "600", color: "#666", marginBottom: 6, marginTop: 14 },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   btnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: "#C9A227", fontSize: 16, fontWeight: "700" },
+  saveBtnText: { color: "#F2650C", fontSize: 16, fontWeight: "700" },
   deleteBtn: { alignItems: "center", marginTop: 20, padding: 10 },
   deleteBtnText: { color: "#c0392b", fontSize: 14, fontWeight: "600" },
 });

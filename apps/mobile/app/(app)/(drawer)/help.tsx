@@ -10,12 +10,12 @@ const FAQS = [
   {
     question: "How do I create a post?",
     answer:
-      'Tap the "+" button on the Posts screen to share an update, photo, or video with your network.',
+      'Tap the "+" button on the Discussions screen to share an update, photo, or video with your network.',
   },
   {
     question: "How do I RSVP to an event?",
     answer:
-      "Open an event from the Calendar screen and tap RSVP. If the event requires payment, you'll be asked for payment details before your spot is confirmed.",
+      "Open an event from the Global Events screen and tap RSVP. If the event requires payment, you'll be asked for payment details before your spot is confirmed.",
   },
   {
     question: "How do I edit my profile?",
@@ -66,7 +66,7 @@ export default function HelpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   content: { padding: 16, paddingBottom: 40 },
   heading: { fontSize: 18, fontWeight: "700", color: "#1C1B18", marginBottom: 14 },
   card: {
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   question: { fontSize: 15, fontWeight: "700", color: "#1C1B18", flex: 1, marginRight: 10 },
-  chevron: { fontSize: 20, fontWeight: "700", color: "#C9A227" },
+  chevron: { fontSize: 20, fontWeight: "700", color: "#F2650C" },
   answer: { fontSize: 14, color: "#555", lineHeight: 21, marginTop: 10 },
   contactCard: {
     backgroundColor: "#1C1B18",
@@ -91,10 +91,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     alignItems: "center",
   },
-  contactTitle: { color: "#C9A227", fontSize: 16, fontWeight: "700", marginBottom: 6 },
+  contactTitle: { color: "#F2650C", fontSize: 16, fontWeight: "700", marginBottom: 6 },
   contactText: { color: "#F5EFE0", fontSize: 13, marginBottom: 16, textAlign: "center" },
   contactBtn: {
-    backgroundColor: "#C9A227",
+    backgroundColor: "#F2650C",
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,

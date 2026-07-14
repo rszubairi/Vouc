@@ -79,7 +79,7 @@ export default function MemberProfileScreen() {
         ) : null}
 
         <View style={styles.sinceBadge}>
-          <Ionicons name="ribbon-outline" size={13} color="#C9A227" />
+          <Ionicons name="ribbon-outline" size={13} color="#F2650C" />
           <Text style={styles.sinceBadgeText}>
             Member since {formatMemberSince(profile._creationTime)}
           </Text>
@@ -103,7 +103,7 @@ export default function MemberProfileScreen() {
               onPress={() => Linking.openURL(profile[s.key]!)}
             >
               <View style={styles.linkIconWrap}>
-                <Ionicons name={s.icon} size={16} color="#C9A227" />
+                <Ionicons name={s.icon} size={16} color="#F2650C" />
               </View>
               <Text style={styles.linkLabel} numberOfLines={1}>
                 {s.label}
@@ -118,7 +118,7 @@ export default function MemberProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   content: { paddingBottom: 60 },
   loader: { flex: 1, marginTop: 60 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -132,10 +132,10 @@ const styles = StyleSheet.create({
     height: 108,
     borderRadius: 54,
     borderWidth: 4,
-    borderColor: "#f4f4f8",
+    borderColor: "#FAF5EA",
   },
   avatarPlaceholder: { backgroundColor: "#1C1B18", alignItems: "center", justifyContent: "center" },
-  avatarInitial: { color: "#C9A227", fontSize: 38, fontWeight: "700" },
+  avatarInitial: { color: "#F2650C", fontSize: 38, fontWeight: "700" },
   identity: { alignItems: "center", marginTop: 12, paddingHorizontal: 20 },
   name: { fontSize: 21, fontWeight: "800", color: "#1C1B18" },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginTop: 12,
   },
-  sinceBadgeText: { fontSize: 12, color: "#8a6d1a", fontWeight: "700" },
+  sinceBadgeText: { fontSize: 12, color: "#B84A0A", fontWeight: "700" },
   card: {
     backgroundColor: "#fff",
     borderRadius: 14,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f8",
+    borderBottomColor: "#FAF5EA",
   },
   linkRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
   linkIconWrap: {

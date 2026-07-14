@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   metaRow: { marginBottom: 4 },
   metaText: { fontSize: 14, color: "#555", marginBottom: 4 },
   details: { fontSize: 15, color: "#222", lineHeight: 22, marginVertical: 14 },
-  link: { color: "#C9A227", fontSize: 14, marginBottom: 14 },
+  link: { color: "#F2650C", fontSize: 14, marginBottom: 14 },
   statsRow: { flexDirection: "row", gap: 16, marginVertical: 14 },
   statText: { fontSize: 13, color: "#555" },
   rsvpBtn: {
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   btnDisabled: { opacity: 0.6 },
-  rsvpBtnText: { color: "#C9A227", fontWeight: "700", fontSize: 16 },
+  rsvpBtnText: { color: "#F2650C", fontWeight: "700", fontSize: 16 },
   rsvpForm: { marginTop: 10 },
   label: { fontSize: 13, fontWeight: "600", color: "#666", marginBottom: 6, marginTop: 12 },
   input: {

@@ -307,13 +307,95 @@ export const listDirectory = query({
   },
 });
 
-// Get list of all profiles (admin use).
+// Get list of all profiles (admin use), enriched with sponsor + membership type names.
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const profiles = await ctx.db.query("profiles").order("desc").take(1000);
-    return profiles.filter((p) => !p.deleteAccount);
+    const profiles = (await ctx.db.query("profiles").order("desc").take(1000)).filter(
+      (p) => !p.deleteAccount
+    );
+
+    const sponsors = await Promise.all(
+      profiles.map((p) => (p.sponsorId ? ctx.db.get(p.sponsorId) : null))
+    );
+    const ranks = await Promise.all(
+      profiles.map((p) => (p.userRankId ? ctx.db.get(p.userRankId) : null))
+    );
+
+    return profiles.map((p, i) => ({
+      ...p,
+      sponsorName: sponsors[i] ? sponsors[i]!.nickName : "—",
+      membershipTypeName: ranks[i] ? ranks[i]!.name : "—",
+    }));
+  },
+});
+
+// Admin: every profile plus its sponsorId, for building a hierarchy tree client-side.
+export const adminHierarchyTree = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const profiles = (await ctx.db.query("profiles").order("desc").take(1000)).filter(
+      (p) => !p.deleteAccount
+    );
+    return profiles.map((p) => ({
+      _id: p._id,
+      nickName: p.nickName,
+      firstName: p.firstName,
+      middleName: p.middleName,
+      lastName: p.lastName,
+      sponsorId: p.sponsorId,
+      sponsorApproved: p.sponsorApproved,
+    }));
+  },
+});
+
+// Admin edits any field on any profile.
+export const adminUpdateProfile = mutation({
+  args: {
+    profileId: v.id("profiles"),
+    nickName: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    middleName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    emailAddress: v.optional(v.string()),
+    sponsorEmailAddress: v.optional(v.string()),
+    sponsorId: v.optional(v.id("profiles")),
+    userRankId: v.optional(v.id("userRanks")),
+    phoneNumber: v.optional(v.string()),
+    birthDate: v.optional(v.number()),
+    addressLine1: v.optional(v.string()),
+    addressLine2: v.optional(v.string()),
+    city: v.optional(v.string()),
+    zipCode: v.optional(v.string()),
+    country: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    website: v.optional(v.string()),
+    facebook: v.optional(v.string()),
+    instagram: v.optional(v.string()),
+    twitter: v.optional(v.string()),
+    line: v.optional(v.string()),
+    tiktok: v.optional(v.string()),
+    discord: v.optional(v.string()),
+    weChat: v.optional(v.string()),
+    sponsorApproved: v.optional(v.boolean()),
+    fullAccess: v.optional(v.boolean()),
+    isAdmin: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { profileId, ...rest }) => {
+    await requireAdmin(ctx);
+
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rest)) {
+      if (value !== undefined) updates[key] = value;
+    }
+
+    await ctx.db.patch(profileId, updates);
+
+    if (updates.sponsorId !== undefined || updates.sponsorApproved !== undefined) {
+      await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId });
+    }
   },
 });
 

@@ -117,7 +117,7 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   list: { padding: 12, paddingBottom: 80 },
   searchBar: {
     flexDirection: "row",
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   creatorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
   creatorAvatar: { width: 22, height: 22, borderRadius: 11 },
   creatorAvatarPlaceholder: { backgroundColor: "#1C1B18", alignItems: "center", justifyContent: "center" },
-  creatorAvatarInitial: { color: "#C9A227", fontSize: 10, fontWeight: "700" },
+  creatorAvatarInitial: { color: "#F2650C", fontSize: 10, fontWeight: "700" },
   creatorName: { fontSize: 12, color: "#888", fontWeight: "600" },
   empty: { alignItems: "center", paddingTop: 80 },
   emptyText: { fontSize: 16, color: "#888" },

@@ -111,19 +111,19 @@ export default function CreateLibraryItemScreen() {
 
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>Allow sharing/retweet</Text>
-        <Switch value={allowRetweet} onValueChange={setAllowRetweet} trackColor={{ true: "#C9A227" }} />
+        <Switch value={allowRetweet} onValueChange={setAllowRetweet} trackColor={{ true: "#F2650C" }} />
       </View>
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>Mark as must-read</Text>
-        <Switch value={mustRead} onValueChange={setMustRead} trackColor={{ true: "#C9A227" }} />
+        <Switch value={mustRead} onValueChange={setMustRead} trackColor={{ true: "#F2650C" }} />
       </View>
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>Visible to upline</Text>
-        <Switch value={toUpline} onValueChange={setToUpline} trackColor={{ true: "#C9A227" }} />
+        <Switch value={toUpline} onValueChange={setToUpline} trackColor={{ true: "#F2650C" }} />
       </View>
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>Visible to downline</Text>
-        <Switch value={toDownline} onValueChange={setToDownline} trackColor={{ true: "#C9A227" }} />
+        <Switch value={toDownline} onValueChange={setToDownline} trackColor={{ true: "#F2650C" }} />
       </View>
 
       <TouchableOpacity
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   categoryChipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
   categoryChipText: { fontSize: 13, color: "#1C1B18" },
-  categoryChipTextActive: { color: "#C9A227", fontWeight: "700" },
+  categoryChipTextActive: { color: "#F2650C", fontWeight: "700" },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -182,5 +182,5 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   btnDisabled: { opacity: 0.6 },
-  createBtnText: { color: "#C9A227", fontSize: 16, fontWeight: "700" },
+  createBtnText: { color: "#F2650C", fontSize: 16, fontWeight: "700" },
 });

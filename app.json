@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "6f659ebd-7ac0-4788-8a99-2eeff49267da"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.rzubairi.oolalarn",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

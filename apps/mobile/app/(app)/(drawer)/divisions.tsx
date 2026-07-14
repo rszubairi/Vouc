@@ -123,14 +123,14 @@ export default function DivisionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   list: { padding: 12, paddingBottom: 40 },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingTop: 10,
-    backgroundColor: "#f4f4f8",
+    backgroundColor: "#FAF5EA",
     gap: 8,
   },
   search: {
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 16, fontWeight: "700", color: "#1C1B18", marginBottom: 4 },
   desc: { fontSize: 13, color: "#666" },
-  chevron: { fontSize: 20, fontWeight: "700", color: "#C9A227", marginLeft: 10 },
+  chevron: { fontSize: 20, fontWeight: "700", color: "#F2650C", marginLeft: 10 },
   categoryList: { borderTopWidth: 1, borderTopColor: "#F5EFE0" },
   categoryRow: {
     flexDirection: "row",
@@ -170,10 +170,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f8",
+    borderBottomColor: "#FAF5EA",
   },
   categoryName: { fontSize: 14, color: "#1C1B18" },
-  categoryArrow: { fontSize: 16, color: "#C9A227" },
+  categoryArrow: { fontSize: 16, color: "#F2650C" },
   noCategoriesText: { padding: 16, color: "#888", fontSize: 13 },
   empty: { alignItems: "center", paddingTop: 80 },
   emptyText: { fontSize: 16, color: "#888" },

@@ -13,6 +13,7 @@ build/
 .expo/
 android/app/build/
 android/build/
+android/.gradle/
 ios/build/
 
 # convex

@@ -152,7 +152,7 @@ export default function NetworkScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   list: { padding: 16, paddingBottom: 40 },
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 15, fontWeight: "700", color: "#1C1B18", marginBottom: 10 },
@@ -195,10 +195,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarInitial: { color: "#C9A227", fontSize: 18, fontWeight: "700" },
+  avatarInitial: { color: "#F2650C", fontSize: 18, fontWeight: "700" },
   name: { fontSize: 15, fontWeight: "700", color: "#1C1B18" },
   subText: { fontSize: 12, color: "#888", marginTop: 2 },
-  memberSince: { fontSize: 11, color: "#C9A227", marginTop: 2, fontWeight: "600" },
+  memberSince: { fontSize: 11, color: "#F2650C", marginTop: 2, fontWeight: "600" },
   empty: { alignItems: "center", paddingTop: 40 },
   emptyText: { fontSize: 15, color: "#888" },
 });

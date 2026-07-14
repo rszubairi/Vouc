@@ -25,6 +25,8 @@ import type * as posts from "../posts.js";
 import type * as profiles from "../profiles.js";
 import type * as ranks from "../ranks.js";
 import type * as seed from "../seed.js";
+import type * as seedIrene from "../seedIrene.js";
+import type * as seedIreneMutation from "../seedIreneMutation.js";
 import type * as seedMutation from "../seedMutation.js";
 import type * as settings from "../settings.js";
 
@@ -52,6 +54,8 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   ranks: typeof ranks;
   seed: typeof seed;
+  seedIrene: typeof seedIrene;
+  seedIreneMutation: typeof seedIreneMutation;
   seedMutation: typeof seedMutation;
   settings: typeof settings;
 }>;

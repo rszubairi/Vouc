@@ -1,6 +1,18 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
+export const grantIsAdmin = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_email", (q) => q.eq("emailAddress", email))
+      .first();
+    if (!profile) throw new Error("Profile not found");
+    await ctx.db.patch(profile._id, { isAdmin: true });
+  },
+});
+
 export const insertAdmin = internalMutation({
   args: { passwordHash: v.string() },
   handler: async (ctx, { passwordHash }) => {

@@ -206,7 +206,7 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   loader: { flex: 1, marginTop: 60 },
   list: { padding: 12 },
   searchBar: {
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     paddingTop: 10,
-    backgroundColor: "#f4f4f8",
+    backgroundColor: "#FAF5EA",
     gap: 8,
   },
   search: {
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   creatorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
   creatorAvatar: { width: 26, height: 26, borderRadius: 13 },
   creatorAvatarPlaceholder: { backgroundColor: "#1C1B18", alignItems: "center", justifyContent: "center" },
-  creatorAvatarInitial: { color: "#C9A227", fontSize: 12, fontWeight: "700" },
+  creatorAvatarInitial: { color: "#F2650C", fontSize: 12, fontWeight: "700" },
   creator: { fontSize: 13, fontWeight: "700", color: "#1C1B18" },
   topic: { fontSize: 13, color: "#888", marginBottom: 6 },
   body: { fontSize: 15, color: "#333", lineHeight: 22 },

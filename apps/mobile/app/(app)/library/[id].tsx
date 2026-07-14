@@ -108,11 +108,11 @@ const styles = StyleSheet.create({
   creatorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
   creatorAvatar: { width: 26, height: 26, borderRadius: 13 },
   creatorAvatarPlaceholder: { backgroundColor: "#1C1B18", alignItems: "center", justifyContent: "center" },
-  creatorAvatarInitial: { color: "#C9A227", fontSize: 12, fontWeight: "700" },
+  creatorAvatarInitial: { color: "#F2650C", fontSize: 12, fontWeight: "700" },
   creator: { fontSize: 13, color: "#666" },
   description: { fontSize: 15, color: "#222", lineHeight: 22, marginBottom: 14 },
   image: { width: "100%", height: 220, borderRadius: 10, marginBottom: 12 },
-  link: { color: "#C9A227", fontSize: 14, marginBottom: 12 },
+  link: { color: "#F2650C", fontSize: 14, marginBottom: 12 },
   docRow: {
     backgroundColor: "#F5EFE0",
     borderRadius: 8,

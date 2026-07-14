@@ -10,7 +10,7 @@ function BackButton() {
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       style={{ paddingHorizontal: 12 }}
     >
-      <Ionicons name="arrow-back" size={22} color="#C9A227" />
+      <Ionicons name="arrow-back" size={22} color="#F2650C" />
     </TouchableOpacity>
   );
 }
@@ -18,7 +18,7 @@ function BackButton() {
 const subScreenOptions = {
   headerLeft: () => <BackButton />,
   headerStyle: { backgroundColor: "#1C1B18" },
-  headerTintColor: "#C9A227",
+  headerTintColor: "#F2650C",
   headerTitleStyle: { fontWeight: "700" as const },
 };
 

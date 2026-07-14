@@ -104,7 +104,7 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f4f8" },
+  container: { flex: 1, backgroundColor: "#FAF5EA" },
   markAllBtn: { padding: 14, alignItems: "flex-end", paddingRight: 16 },
   markAllText: { color: "#1C1B18", fontWeight: "600", fontSize: 13 },
   list: { paddingBottom: 24 },

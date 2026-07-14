@@ -32,7 +32,7 @@ export default function RanksPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[#1C1B18]">User Ranks</h2>
+        <h2 className="text-2xl font-bold text-[#1C1B18]">Membership Type</h2>
       </div>
 
       <DataTable
@@ -45,7 +45,7 @@ export default function RanksPage() {
             onClick={() => setCreating(true)}
             className="bg-[#C9A227] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#B8911E] transition-colors"
           >
-            + Add Rank
+            + Add Membership Type
           </button>
         }
         actions={(row) => (
@@ -55,7 +55,7 @@ export default function RanksPage() {
             </button>
             <button
               onClick={() => {
-                if (confirm(`Delete rank "${row.name}"?`)) remove({ id: row._id });
+                if (confirm(`Delete membership type "${row.name}"?`)) remove({ id: row._id });
               }}
               className="text-sm text-red-600 hover:underline"
             >
@@ -106,7 +106,7 @@ function RankForm({
   const [submitting, setSubmitting] = useState(false);
 
   return (
-    <Modal title={initial ? "Edit Rank" : "Add Rank"} onClose={onClose}>
+    <Modal title={initial ? "Edit Membership Type" : "Add Membership Type"} onClose={onClose}>
       <form
         onSubmit={async (e) => {
           e.preventDefault();

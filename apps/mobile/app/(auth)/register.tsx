@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: "#1C1B18",
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#FAF5EA",
   },
   hint: { fontSize: 11, color: "#999", marginTop: 4 },
   checkRow: {

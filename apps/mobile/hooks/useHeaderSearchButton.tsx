@@ -11,7 +11,7 @@ export function useHeaderSearchButton(visible: boolean, toggle: () => void) {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity onPress={toggle} hitSlop={10} style={{ paddingHorizontal: 12 }}>
-          <Ionicons name={visible ? "close" : "search-outline"} size={22} color="#C9A227" />
+          <Ionicons name={visible ? "close" : "search-outline"} size={22} color="#F2650C" />
         </TouchableOpacity>
       ),
     });

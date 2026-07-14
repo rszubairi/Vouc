@@ -3,8 +3,8 @@
 
 export const COLORS = {
   black: "#050505",
-  gold: "#D4AF37",
-  champagne: "#F5D77A",
+  gold: "#F2650C",
+  champagne: "#F7941E",
 } as const;
 
 // All durations in ms. Values mirror the animation spec:

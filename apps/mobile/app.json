@@ -11,12 +11,15 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.oolala.app"
+      "bundleIdentifier": "com.oolala.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1C1B18"
+        "backgroundColor": "#F5EFE0"
       },
       "package": "com.oolala.app",
       "googleServicesFile": "./google-services.json"
@@ -26,12 +29,28 @@
       "expo-secure-store",
       "expo-notifications",
       "expo-image",
+      "expo-document-picker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Vouch to access your camera to take photos.",
+          "microphonePermission": "Allow Vouch to access your microphone."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Vouch to access your photos to set a profile picture or attach images to posts.",
+          "cameraPermission": "Allow Vouch to access your camera to take photos."
+        }
+      ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#050505",
+          "image": "./assets/splash.png",
+          "backgroundColor": "#F5EFE0",
           "dark": {
-            "backgroundColor": "#050505"
+            "backgroundColor": "#F5EFE0"
           }
         }
       ]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type Column<T> = {
   key: string;
@@ -12,6 +12,8 @@ export type Column<T> = {
   filterOptions?: { label: string; value: string }[];
   /** Value used to match against the selected filter option. Defaults to `row[key]`. */
   filterValue?: (row: T) => string;
+  /** Initial column width in px. Defaults to 160. */
+  defaultWidth?: number;
 };
 
 type DataTableProps<T> = {
@@ -22,7 +24,30 @@ type DataTableProps<T> = {
   emptyMessage?: string;
   actions?: (row: T) => React.ReactNode;
   addButton?: React.ReactNode;
+  /**
+   * When provided, column order and widths are persisted to localStorage
+   * under this key so the layout survives reloads.
+   */
+  storageKey?: string;
 };
+
+const MIN_COL_WIDTH = 80;
+
+type StoredLayout = {
+  order: string[];
+  widths: Record<string, number>;
+};
+
+function loadLayout(storageKey: string | undefined): StoredLayout | null {
+  if (!storageKey || typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    return JSON.parse(raw) as StoredLayout;
+  } catch {
+    return null;
+  }
+}
 
 export function DataTable<T>({
   columns,
@@ -32,9 +57,48 @@ export function DataTable<T>({
   emptyMessage = "No records found.",
   actions,
   addButton,
+  storageKey,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    const stored = loadLayout(storageKey);
+    const knownKeys = columns.map((c) => c.key);
+    if (!stored) return knownKeys;
+    // Keep any stored order, then append newly-added columns not yet stored.
+    const ordered = stored.order.filter((k) => knownKeys.includes(k));
+    const missing = knownKeys.filter((k) => !ordered.includes(k));
+    return [...ordered, ...missing];
+  });
+
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    const stored = loadLayout(storageKey);
+    return stored?.widths ?? {};
+  });
+
+  // Reconcile column order/widths if the set of columns changes (e.g. filter options load in).
+  useEffect(() => {
+    const knownKeys = columns.map((c) => c.key);
+    setColumnOrder((prev) => {
+      const kept = prev.filter((k) => knownKeys.includes(k));
+      const missing = knownKeys.filter((k) => !kept.includes(k));
+      if (missing.length === 0 && kept.length === prev.length) return prev;
+      return [...kept, ...missing];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns.map((c) => c.key).join("|")]);
+
+  useEffect(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    const layout: StoredLayout = { order: columnOrder, widths: colWidths };
+    window.localStorage.setItem(storageKey, JSON.stringify(layout));
+  }, [storageKey, columnOrder, colWidths]);
+
+  const orderedColumns = useMemo(() => {
+    const byKey = new Map(columns.map((c) => [c.key, c]));
+    return columnOrder.map((k) => byKey.get(k)).filter((c): c is Column<T> => !!c);
+  }, [columnOrder, columns]);
 
   const filtered = useMemo(() => {
     if (!data) return undefined;
@@ -67,6 +131,50 @@ export function DataTable<T>({
 
   const filterableColumns = columns.filter((c) => c.filterOptions);
 
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const [resizing, setResizing] = useState<{ key: string; startX: number; startWidth: number } | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!resizing) return;
+
+    function onMove(e: MouseEvent) {
+      if (!resizing) return;
+      const delta = e.clientX - resizing.startX;
+      const next = Math.max(MIN_COL_WIDTH, resizing.startWidth + delta);
+      setColWidths((w) => ({ ...w, [resizing.key]: next }));
+    }
+    function onUp() {
+      setResizing(null);
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [resizing]);
+
+  function handleDrop(targetKey: string) {
+    if (!draggingKey || draggingKey === targetKey) {
+      setDraggingKey(null);
+      return;
+    }
+    setColumnOrder((prev) => {
+      const next = prev.filter((k) => k !== draggingKey);
+      const targetIndex = next.indexOf(targetKey);
+      next.splice(targetIndex, 0, draggingKey);
+      return next;
+    });
+    setDraggingKey(null);
+  }
+
+  function widthFor(col: Column<T>) {
+    return colWidths[col.key] ?? col.defaultWidth ?? 160;
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -97,15 +205,38 @@ export function DataTable<T>({
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
+          <colgroup>
+            {orderedColumns.map((col) => (
+              <col key={col.key} style={{ width: widthFor(col) }} />
+            ))}
+            {actions && <col style={{ width: 140 }} />}
+          </colgroup>
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {columns.map((col) => (
+              {orderedColumns.map((col) => (
                 <th
                   key={col.key}
-                  className="text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap"
+                  draggable={!!storageKey}
+                  onDragStart={() => setDraggingKey(col.key)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDrop(col.key)}
+                  className={`relative text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap select-none ${
+                    storageKey ? "cursor-move" : ""
+                  } ${draggingKey === col.key ? "opacity-50" : ""}`}
                 >
                   {col.label}
+                  {storageKey && (
+                    <div
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setResizing({ key: col.key, startX: e.clientX, startWidth: widthFor(col) });
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      draggable={false}
+                      className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-[#C9A227]/30"
+                    />
+                  )}
                 </th>
               ))}
               {actions && (
@@ -119,7 +250,7 @@ export function DataTable<T>({
             {filtered === undefined ? (
               <tr>
                 <td
-                  colSpan={columns.length + (actions ? 1 : 0)}
+                  colSpan={orderedColumns.length + (actions ? 1 : 0)}
                   className="text-center text-gray-400 py-10"
                 >
                   Loading...
@@ -128,7 +259,7 @@ export function DataTable<T>({
             ) : filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + (actions ? 1 : 0)}
+                  colSpan={orderedColumns.length + (actions ? 1 : 0)}
                   className="text-center text-gray-400 py-10"
                 >
                   {emptyMessage}
@@ -137,8 +268,11 @@ export function DataTable<T>({
             ) : (
               filtered.map((row) => (
                 <tr key={getRowId(row)} className="hover:bg-gray-50">
-                  {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-gray-700 align-top">
+                  {orderedColumns.map((col) => (
+                    <td
+                      key={col.key}
+                      className="px-4 py-3 text-gray-700 align-top overflow-hidden text-ellipsis"
+                    >
                       {col.render
                         ? col.render(row)
                         : String((row as Record<string, unknown>)[col.key] ?? "")}

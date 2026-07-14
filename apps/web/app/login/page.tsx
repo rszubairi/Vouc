@@ -46,9 +46,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#1C1B18] px-4 py-10">
-      <div className="w-full max-w-sm bg-[#242219] border border-[#C9A227]/20 rounded-xl p-8 shadow-xl">
-        <h1 className="text-2xl font-bold text-[#C9A227] mb-1">Vouch Admin</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-black via-[#141414] to-black px-4 py-10">
+      <div className="w-full max-w-sm bg-black border border-[#F2650C]/20 rounded-xl p-8 shadow-xl">
+        <h1 className="text-2xl font-bold text-[#F2650C] mb-1">Vouch Admin</h1>
         <p className="text-sm text-[#F5EFE0]/60 mb-6">
           {mode === "signIn"
             ? "Sign in to the admin console"
@@ -113,7 +113,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-[#C9A227] text-[#1C1B18] font-semibold rounded-lg py-2.5 hover:bg-[#DDBA3E] transition-colors disabled:opacity-50"
+            className="w-full bg-black border border-[#F2650C]/40 text-white font-semibold rounded-lg py-2.5 hover:bg-neutral-900 transition-colors disabled:opacity-50"
           >
             {submitting
               ? "Please wait..."
@@ -129,7 +129,7 @@ export default function LoginPage() {
               setMode(mode === "signIn" ? "signUp" : "signIn");
               setError(null);
             }}
-            className="w-full mt-4 text-xs text-[#F5EFE0]/50 hover:text-[#C9A227] transition-colors"
+            className="w-full mt-4 text-xs text-[#F5EFE0]/50 hover:text-[#F2650C] transition-colors"
           >
             {mode === "signIn"
               ? "No admin account yet — set one up"
@@ -142,11 +142,11 @@ export default function LoginPage() {
         <p className="text-xs text-[#F5EFE0]/40">Get the Vouch mobile app</p>
         <StoreBadges />
         <p className="text-xs text-[#F5EFE0]/40 flex items-center gap-2">
-          <Link href="/privacy-policy" className="hover:text-[#C9A227] transition-colors">
+          <Link href="/privacy-policy" className="hover:text-[#F2650C] transition-colors">
             Privacy Policy
           </Link>
           <span>&middot;</span>
-          <Link href="/terms-of-service" className="hover:text-[#C9A227] transition-colors">
+          <Link href="/terms-of-service" className="hover:text-[#F2650C] transition-colors">
             Terms &amp; Conditions
           </Link>
         </p>
@@ -156,7 +156,7 @@ export default function LoginPage() {
 }
 
 const inputClass =
-  "w-full bg-[#1C1B18] border border-[#C9A227]/20 rounded-lg px-3 py-2 text-sm text-[#F5EFE0] focus:outline-none focus:border-[#C9A227]/60";
+  "w-full bg-neutral-900 border border-[#F2650C]/20 rounded-lg px-3 py-2 text-sm text-[#F5EFE0] focus:outline-none focus:border-[#F2650C]/60";
 
 function Field({
   label,

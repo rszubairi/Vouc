@@ -111,10 +111,10 @@ export default function ProfilesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[#1C1B18]">Profiles</h2>
+        <h2 className="text-2xl font-bold text-black">Profiles</h2>
         <Link
           href="/dashboard/profiles/hierarchy"
-          className="text-sm text-[#C9A227] font-semibold hover:underline"
+          className="text-sm text-[#F2650C] font-semibold hover:underline"
         >
           View Hierarchy
         </Link>
@@ -352,7 +352,7 @@ function ProfileForm({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-[#C9A227] text-white font-semibold rounded-lg py-2.5 hover:bg-[#B8911E] transition-colors disabled:opacity-50"
+          className="w-full bg-black text-white font-semibold rounded-lg py-2.5 hover:bg-neutral-800 transition-colors disabled:opacity-50"
         >
           {submitting ? "Saving..." : "Save"}
         </button>

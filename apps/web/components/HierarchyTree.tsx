@@ -60,14 +60,14 @@ function TreeNode({
         {children.length > 0 ? (
           <button
             onClick={() => setExpanded((e) => !e)}
-            className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-[#C9A227] text-xs shrink-0"
+            className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-[#F2650C] text-xs shrink-0"
           >
             {expanded ? "▾" : "▸"}
           </button>
         ) : (
           <span className="w-5 h-5 shrink-0" />
         )}
-        <span className="font-semibold text-[#1C1B18]">{node.nickName}</span>
+        <span className="font-semibold text-black">{node.nickName}</span>
         <span className="text-gray-500 text-sm">{fullName(node)}</span>
         {!node.sponsorApproved && (
           <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700">Pending</span>

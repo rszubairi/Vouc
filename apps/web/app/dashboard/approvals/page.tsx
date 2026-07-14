@@ -38,7 +38,7 @@ export default function ApprovalsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[#1C1B18]">Pending Approvals</h2>
+        <h2 className="text-2xl font-bold text-black">Pending Approvals</h2>
       </div>
 
       <DataTable

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -35,6 +35,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { signOut } = useAuthActions();
   const me = useQuery(api.admin.currentAdmin);
 
@@ -57,7 +58,7 @@ export default function DashboardLayout({
         <p className="text-gray-600">You need admin access to view this page.</p>
         <Link
           href="/login"
-          className="text-[#C9A227] font-semibold hover:underline"
+          className="text-[#F2650C] font-semibold hover:underline"
         >
           Go to login
         </Link>
@@ -68,34 +69,43 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-60 bg-[#1C1B18] text-[#F5EFE0] flex flex-col shrink-0">
-        <div className="px-6 py-5 border-b border-[#C9A227]/20">
-          <h1 className="text-xl font-bold tracking-tight text-[#C9A227]">Vouch</h1>
+      <aside className="w-60 bg-gradient-to-b from-black via-[#141414] to-black text-[#F2650C] flex flex-col shrink-0">
+        <div className="px-6 py-5 border-b border-[#F2650C]/20">
+          <h1 className="text-xl font-bold tracking-tight text-[#F2650C]">Vouch</h1>
         </div>
 
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-[#C9A227]/20">
-          <div className="w-10 h-10 rounded-full bg-[#C9A227]/20 border border-[#C9A227]/40 flex items-center justify-center text-[#C9A227] font-semibold">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-[#F2650C]/20">
+          <div className="w-10 h-10 rounded-full bg-[#F2650C]/20 border border-[#F2650C]/40 flex items-center justify-center text-[#F2650C] font-semibold">
             {me?.nickName?.[0]?.toUpperCase() ?? "?"}
           </div>
-          <span className="text-sm font-medium truncate">{me?.nickName ?? "Admin"}</span>
+          <span className="text-sm font-medium truncate text-[#F5EFE0]">{me?.nickName ?? "Admin"}</span>
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 px-6 py-2.5 text-sm text-[#F5EFE0]/80 hover:bg-[#C9A227]/10 hover:text-[#C9A227] transition-colors"
-            >
-              <FontAwesomeIcon icon={item.icon} className="w-4 h-4" />
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-colors ${
+                  isActive
+                    ? "bg-[#F5EFE0] text-black"
+                    : "text-[#F2650C]/80 hover:bg-[#F2650C]/10 hover:text-[#F2650C]"
+                }`}
+              >
+                <FontAwesomeIcon icon={item.icon} className="w-4 h-4" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
-        <div className="px-6 py-4 border-t border-[#C9A227]/20">
+        <div className="px-6 py-4 border-t border-[#F2650C]/20">
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-2 text-xs text-[#F5EFE0]/60 hover:text-[#C9A227] transition-colors"
+            className="flex items-center gap-2 text-xs text-[#F2650C]/60 hover:text-[#F2650C] transition-colors"
           >
             <FontAwesomeIcon icon={faRightFromBracket} className="w-3.5 h-3.5" />
             Sign out

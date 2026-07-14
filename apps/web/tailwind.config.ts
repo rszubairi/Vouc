@@ -8,8 +8,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: "#1C1B18",
-        gold: "#C9A227",
+        brand: "#000000",
+        orange: "#F2650C",
         beige: "#F5EFE0",
       },
     },

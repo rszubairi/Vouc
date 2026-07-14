@@ -19,7 +19,7 @@ export function Modal({
         className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-[#1C1B18]">{title}</h3>
+          <h3 className="text-lg font-semibold text-black">{title}</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
@@ -34,7 +34,7 @@ export function Modal({
 }
 
 export const inputClass =
-  "w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C9A227]";
+  "w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#F2650C]";
 
 export function FormField({
   label,

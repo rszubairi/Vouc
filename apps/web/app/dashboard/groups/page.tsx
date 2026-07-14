@@ -32,7 +32,7 @@ export default function GroupsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[#1C1B18]">Groups</h2>
+        <h2 className="text-2xl font-bold text-black">Groups</h2>
       </div>
 
       <DataTable
@@ -43,7 +43,7 @@ export default function GroupsPage() {
         addButton={
           <button
             onClick={() => setCreating(true)}
-            className="bg-[#C9A227] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#B8911E] transition-colors"
+            className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-neutral-800 transition-colors"
           >
             + Add Group
           </button>
@@ -118,7 +118,7 @@ function GroupForm({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-[#C9A227] text-white font-semibold rounded-lg py-2.5 hover:bg-[#B8911E] transition-colors disabled:opacity-50"
+          className="w-full bg-black text-white font-semibold rounded-lg py-2.5 hover:bg-neutral-800 transition-colors disabled:opacity-50"
         >
           {submitting ? "Saving..." : "Save"}
         </button>

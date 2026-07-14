@@ -182,7 +182,7 @@ export function DataTable<T>({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={searchPlaceholder}
-          className="flex-1 min-w-[200px] bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C9A227]"
+          className="flex-1 min-w-[200px] bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#F2650C]"
         />
         {filterableColumns.map((col) => (
           <select
@@ -191,7 +191,7 @@ export function DataTable<T>({
             onChange={(e) =>
               setFilters((f) => ({ ...f, [col.key]: e.target.value }))
             }
-            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C9A227]"
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#F2650C]"
           >
             <option value="">All {col.label}</option>
             {col.filterOptions!.map((opt) => (
@@ -234,7 +234,7 @@ export function DataTable<T>({
                       }}
                       onClick={(e) => e.stopPropagation()}
                       draggable={false}
-                      className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-[#C9A227]/30"
+                      className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-[#F2650C]/30"
                     />
                   )}
                 </th>

@@ -11,8 +11,8 @@ export default function HierarchyPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[#1C1B18]">Sponsor Hierarchy</h2>
-        <Link href="/dashboard/profiles" className="text-sm text-[#C9A227] font-semibold hover:underline">
+        <h2 className="text-2xl font-bold text-black">Sponsor Hierarchy</h2>
+        <Link href="/dashboard/profiles" className="text-sm text-[#F2650C] font-semibold hover:underline">
           Back to Profiles
         </Link>
       </div>

@@ -67,9 +67,9 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-60 bg-[#F5EFE0] text-black flex flex-col shrink-0">
+      <aside className="w-60 h-full bg-[#F5EFE0] text-black flex flex-col shrink-0">
         <div className="px-6 py-5 border-b border-black/10">
           <h1 className="text-xl font-bold tracking-tight text-black">Vouch</h1>
         </div>
@@ -114,7 +114,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 min-w-0 h-full overflow-y-auto">
         <div className="p-8">{children}</div>
       </main>
     </div>

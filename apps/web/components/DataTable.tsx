@@ -204,7 +204,7 @@ export function DataTable<T>({
         <div className="ml-auto">{addButton}</div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
         <table className="text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {orderedColumns.map((col) => (
@@ -212,7 +212,7 @@ export function DataTable<T>({
             ))}
             {actions && <col style={{ width: 140 }} />}
           </colgroup>
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead>
             <tr>
               {orderedColumns.map((col) => (
                 <th
@@ -221,7 +221,7 @@ export function DataTable<T>({
                   onDragStart={() => setDraggingKey(col.key)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => handleDrop(col.key)}
-                  className={`relative text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap select-none ${
+                  className={`sticky top-0 z-10 relative text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap select-none bg-gray-50 border-b border-gray-200 ${
                     storageKey ? "cursor-move" : ""
                   } ${draggingKey === col.key ? "opacity-50" : ""}`}
                 >
@@ -240,7 +240,7 @@ export function DataTable<T>({
                 </th>
               ))}
               {actions && (
-                <th className="text-right px-4 py-3 font-semibold text-gray-600">
+                <th className="sticky top-0 z-10 text-right px-4 py-3 font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">
                   Actions
                 </th>
               )}

@@ -401,7 +401,12 @@ export default defineSchema(
       displayOrder: v.number(),
       // Which module this category applies to. Existing rows predate this
       // field and are all Library categories; treat missing scope as "library".
-      scope: v.optional(v.union(v.literal("library"), v.literal("discussion"))),
+      // "knowledgeHub" is the distinct, division-less set of launch categories
+      // shown on the mobile Knowledge Hub landing screen — kept separate from
+      // "library" so admin-created product/division categories never leak in.
+      scope: v.optional(
+        v.union(v.literal("library"), v.literal("discussion"), v.literal("knowledgeHub"))
+      ),
     })
       .index("by_divisionId", ["divisionId"])
       .index("by_scope", ["scope"]),

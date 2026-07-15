@@ -12,12 +12,27 @@ const KNOWLEDGE_HUB_CATEGORIES = [
 
 // One-off/idempotent seed for the launch set of Knowledge Hub categories.
 // Run via `npx convex run categories:seedKnowledgeHubCategories`.
+// Also fixes up rows from an earlier version of this seed that were created
+// with scope "library" (which collided with pre-existing admin/library
+// categories) by moving them onto the dedicated "knowledgeHub" scope.
 export const seedKnowledgeHubCategories = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const existing = await ctx.db
+    const nameSet = new Set(KNOWLEDGE_HUB_CATEGORIES);
+
+    const misScoped = await ctx.db
       .query("categories")
       .withIndex("by_scope", (q) => q.eq("scope", "library"))
+      .collect();
+    for (const c of misScoped) {
+      if (nameSet.has(c.name) && !c.divisionId) {
+        await ctx.db.patch(c._id, { scope: "knowledgeHub" });
+      }
+    }
+
+    const existing = await ctx.db
+      .query("categories")
+      .withIndex("by_scope", (q) => q.eq("scope", "knowledgeHub"))
       .collect();
     const existingNames = new Set(existing.map((c) => c.name));
 
@@ -27,7 +42,7 @@ export const seedKnowledgeHubCategories = internalMutation({
       await ctx.db.insert("categories", {
         name,
         displayOrder: i,
-        scope: "library",
+        scope: "knowledgeHub",
       });
     }
   },
@@ -35,7 +50,9 @@ export const seedKnowledgeHubCategories = internalMutation({
 
 export const list = query({
   args: {
-    scope: v.optional(v.union(v.literal("library"), v.literal("discussion"))),
+    scope: v.optional(
+      v.union(v.literal("library"), v.literal("discussion"), v.literal("knowledgeHub"))
+    ),
   },
   handler: async (ctx, { scope }) => {
     const categories = await ctx.db.query("categories").order("asc").collect();
@@ -59,7 +76,9 @@ export const create = mutation({
     description: v.optional(v.string()),
     displayOrder: v.number(),
     divisionId: v.optional(v.id("divisions")),
-    scope: v.optional(v.union(v.literal("library"), v.literal("discussion"))),
+    scope: v.optional(
+      v.union(v.literal("library"), v.literal("discussion"), v.literal("knowledgeHub"))
+    ),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
@@ -74,7 +93,9 @@ export const update = mutation({
     description: v.optional(v.string()),
     displayOrder: v.number(),
     divisionId: v.optional(v.id("divisions")),
-    scope: v.optional(v.union(v.literal("library"), v.literal("discussion"))),
+    scope: v.optional(
+      v.union(v.literal("library"), v.literal("discussion"), v.literal("knowledgeHub"))
+    ),
   },
   handler: async (ctx, { id, ...rest }) => {
     await requireAdmin(ctx);

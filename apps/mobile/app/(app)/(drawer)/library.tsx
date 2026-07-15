@@ -33,7 +33,7 @@ export default function LibraryScreen() {
     (paramCategoryId as Id<"categories"> | undefined) ?? null
   );
 
-  const categories = useQuery(api.categories.list, { scope: "library" });
+  const categories = useQuery(api.categories.list, { scope: "knowledgeHub" });
   const items = useQuery(
     api.library.listItems,
     selectedCategoryId ? { categoryId: selectedCategoryId } : "skip"
@@ -45,11 +45,7 @@ export default function LibraryScreen() {
 
   const sortedCategories = useMemo(() => {
     if (!categories) return [];
-    // Knowledge Hub only shows the flat, division-less launch categories.
-    // Division-linked categories (e.g. product lines) belong to the Directory screen.
-    return categories
-      .filter((c) => !c.divisionId)
-      .sort((a, b) => a.displayOrder - b.displayOrder);
+    return [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
   }, [categories]);
 
   const selectedCategory = useMemo(

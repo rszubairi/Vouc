@@ -1,6 +1,37 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "./adminAuth";
+
+const KNOWLEDGE_HUB_CATEGORIES = [
+  "Articles & Guides",
+  "Training Courses",
+  "Seminars & Webinars",
+  "Templates & Downloads",
+  "Tools & Resources",
+];
+
+// One-off/idempotent seed for the launch set of Knowledge Hub categories.
+// Run via `npx convex run categories:seedKnowledgeHubCategories`.
+export const seedKnowledgeHubCategories = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("categories")
+      .withIndex("by_scope", (q) => q.eq("scope", "library"))
+      .collect();
+    const existingNames = new Set(existing.map((c) => c.name));
+
+    for (let i = 0; i < KNOWLEDGE_HUB_CATEGORIES.length; i++) {
+      const name = KNOWLEDGE_HUB_CATEGORIES[i];
+      if (existingNames.has(name)) continue;
+      await ctx.db.insert("categories", {
+        name,
+        displayOrder: i,
+        scope: "library",
+      });
+    }
+  },
+});
 
 export const list = query({
   args: {

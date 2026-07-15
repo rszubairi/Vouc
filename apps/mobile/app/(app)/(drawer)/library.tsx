@@ -18,16 +18,44 @@ import { useMemo, useState } from "react";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
+const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  "Articles & Guides": "school-outline",
+  "Training Courses": "easel-outline",
+  "Seminars & Webinars": "mic-outline",
+  "Templates & Downloads": "document-text-outline",
+  "Tools & Resources": "construct-outline",
+};
+
 export default function LibraryScreen() {
   const router = useRouter();
-  const { categoryId } = useLocalSearchParams<{ categoryId?: string }>();
-  const items = useQuery(api.library.listItems, {
-    categoryId: categoryId as Id<"categories"> | undefined,
-  });
+  const { categoryId: paramCategoryId } = useLocalSearchParams<{ categoryId?: string }>();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<Id<"categories"> | null>(
+    (paramCategoryId as Id<"categories"> | undefined) ?? null
+  );
+
+  const categories = useQuery(api.categories.list, { scope: "library" });
+  const items = useQuery(
+    api.library.listItems,
+    selectedCategoryId ? { categoryId: selectedCategoryId } : "skip"
+  );
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
   useHeaderSearchButton(searchVisible, toggleSearch);
+
+  const sortedCategories = useMemo(() => {
+    if (!categories) return [];
+    // Knowledge Hub only shows the flat, division-less launch categories.
+    // Division-linked categories (e.g. product lines) belong to the Directory screen.
+    return categories
+      .filter((c) => !c.divisionId)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [categories]);
+
+  const selectedCategory = useMemo(
+    () => sortedCategories.find((c) => c._id === selectedCategoryId) ?? null,
+    [sortedCategories, selectedCategoryId]
+  );
 
   const filteredItems = useMemo(() => {
     if (!items) return [];
@@ -46,8 +74,51 @@ export default function LibraryScreen() {
     setTimeout(() => setRefreshing(false), 600);
   }
 
+  if (!selectedCategoryId) {
+    return (
+      <View style={styles.container}>
+        {categories === undefined ? (
+          <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#1C1B18" />
+        ) : (
+          <FlashList
+            data={sortedCategories}
+            keyExtractor={(c) => c._id}
+            estimatedItemSize={64}
+            contentContainerStyle={styles.list}
+            renderItem={({ item: category }) => (
+              <TouchableOpacity
+                style={styles.categoryCard}
+                onPress={() => setSelectedCategoryId(category._id)}
+              >
+                <View style={styles.categoryIconWrap}>
+                  <Ionicons
+                    name={CATEGORY_ICONS[category.name] ?? "folder-outline"}
+                    size={22}
+                    color="#F2650C"
+                  />
+                </View>
+                <Text style={styles.categoryName}>{category.name}</Text>
+                <Ionicons name="chevron-forward" size={18} color="#999" />
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>No categories yet.</Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backRow} onPress={() => setSelectedCategoryId(null)}>
+        <Ionicons name="chevron-back" size={18} color="#F2650C" />
+        <Text style={styles.backText}>{selectedCategory?.name ?? "Categories"}</Text>
+      </TouchableOpacity>
+
       {searchVisible && (
         <View style={styles.searchBar}>
           <TextInput
@@ -119,6 +190,38 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FAF5EA" },
   list: { padding: 12, paddingBottom: 80 },
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 2,
+  },
+  backText: { color: "#F2650C", fontSize: 15, fontWeight: "700" },
+  categoryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F5EFE0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryName: { flex: 1, fontSize: 15, fontWeight: "700", color: "#1C1B18" },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",

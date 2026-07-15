@@ -216,22 +216,27 @@ async function migrateGroups() {
   console.log(`  ✓ ${rows.length} rows`);
 }
 
-// ─── Phase 5: Posts ───────────────────────────────────────────────────────────
+// ─── Phase 5: Discussions (formerly Posts) ─────────────────────────────────────
 
 async function migratePosts() {
-  console.log("\n── Posts");
+  console.log("\n── Discussions");
   const rows = loadExport<any>("posts");
   for (const r of rows) {
     const userId = getId("profiles", r.UserId);
     if (!userId) continue;
-    await upsert("posts", r.Id, {
+    const discussionId = await upsert("discussions", r.Id, {
       userId,
       topic: r.Topic ?? undefined,
       details: r.Details ?? "",
+      status: "Open",
       postDate: toMs(r.PostDate) ?? Date.now(),
       superAccount: false,
       ...visFlags(r),
     });
+    if (r.Tag) {
+      const tag = String(r.Tag).toLowerCase().trim();
+      if (tag) await upsert("discussionTags", `tag:${r.Id}`, { discussionId, tag });
+    }
   }
   console.log(`  ✓ ${rows.length} rows`);
 }

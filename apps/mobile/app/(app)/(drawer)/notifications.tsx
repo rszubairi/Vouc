@@ -44,7 +44,8 @@ export default function NotificationsScreen() {
   async function handleTap(n: any) {
     if (!n.isRead) await markRead({ notificationId: n._id });
     // Navigate to entity
-    if (n.entity === "Post") router.push(`/(app)/post/${n.entityId}`);
+    // "Post" is the legacy entity value from before the Discussions rename.
+    if (n.entity === "Discussion" || n.entity === "Post") router.push(`/(app)/discussion/${n.entityId}`);
     else if (n.entity === "Event") router.push(`/(app)/event/${n.entityId}`);
   }
 

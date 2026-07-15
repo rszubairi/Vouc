@@ -17,12 +17,12 @@ This document describes how to migrate all existing Oolala data from SQL Server 
 | ProfileHierarchy | `profileHierarchies` | Re-computed; migrate as-is |
 | ProfileFollowers | `profileFollowers` | |
 | UserRanks | `userRanks` | |
-| Posts | `posts` | Ignored: CallerId, SuperAccount, Country, City, MemberSince, LastLogin, TeamName |
-| PostImages | `postImages` | |
-| PostMetas | `postMetas` | Ignored: ProfileName, ProfilePic |
-| PostVisibilities | `postVisibilities` | |
-| PostLanguages | `postLanguages` | |
-| PostMarkets | `postMarkets` | |
+| Posts | `discussions` | Ignored: CallerId, SuperAccount, Country, City, MemberSince, LastLogin, TeamName. `Tag` → one `discussionTags` row; `status` defaults to `"Open"`. |
+| PostImages | `discussionImages` | |
+| PostMetas | `discussionMetas` (Like/Endorse) + `discussionReplies` (Comment) | Ignored: ProfileName, ProfilePic |
+| PostVisibilities | `discussionVisibilities` | |
+| PostLanguages | `discussionLanguages` | |
+| PostMarkets | `discussionMarkets` | |
 | Events | `events` | Ignored: CallerId, SuperAccount, CreatorName |
 | EventImages | `eventImages` | |
 | EventMetas | `eventMetas` | Ignored: ProfileName, ProfilePic |

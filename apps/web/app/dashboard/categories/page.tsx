@@ -14,10 +14,13 @@ type Category = {
   displayOrder: number;
   divisionId?: Id<"divisions">;
   divisionName: string;
+  scope?: "library" | "discussion";
 };
 
+const scopeLabel = (scope: Category["scope"]) => (scope === "discussion" ? "Discussion" : "Library");
+
 export default function CategoriesPage() {
-  const categories = useQuery(api.categories.list);
+  const categories = useQuery(api.categories.list, {});
   const divisions = useQuery(api.divisions.list);
   const create = useMutation(api.categories.create);
   const update = useMutation(api.categories.update);
@@ -28,6 +31,16 @@ export default function CategoriesPage() {
 
   const columns: Column<Category>[] = [
     { key: "name", label: "Name" },
+    {
+      key: "scope",
+      label: "Used In",
+      render: (r) => scopeLabel(r.scope),
+      filterValue: (r) => scopeLabel(r.scope),
+      filterOptions: [
+        { label: "Library", value: "Library" },
+        { label: "Discussion", value: "Discussion" },
+      ],
+    },
     {
       key: "divisionName",
       label: "Division",
@@ -110,12 +123,14 @@ function CategoryForm({
     description?: string;
     displayOrder: number;
     divisionId?: Id<"divisions">;
+    scope: "library" | "discussion";
   }) => Promise<void>;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [displayOrder, setDisplayOrder] = useState(initial?.displayOrder ?? 0);
   const [divisionId, setDivisionId] = useState(initial?.divisionId ?? "");
+  const [scope, setScope] = useState<"library" | "discussion">(initial?.scope ?? "library");
   const [submitting, setSubmitting] = useState(false);
 
   return (
@@ -130,6 +145,7 @@ function CategoryForm({
               description: description || undefined,
               displayOrder: Number(displayOrder),
               divisionId: divisionId ? (divisionId as Id<"divisions">) : undefined,
+              scope,
             });
           } finally {
             setSubmitting(false);
@@ -138,6 +154,12 @@ function CategoryForm({
       >
         <FormField label="Name">
           <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+        </FormField>
+        <FormField label="Used In">
+          <select value={scope} onChange={(e) => setScope(e.target.value as "library" | "discussion")} className={inputClass}>
+            <option value="library">Library</option>
+            <option value="discussion">Discussion</option>
+          </select>
         </FormField>
         <FormField label="Division">
           <select

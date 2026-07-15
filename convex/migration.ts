@@ -14,7 +14,9 @@ import { v } from "convex/values";
 const ALLOWED_TABLES = new Set([
   "profiles", "profileImages", "profileLanguages", "profileMarkets",
   "profileHierarchies", "profileFollowers", "userRanks",
-  "posts", "postImages", "postMetas", "postVisibilities", "postLanguages", "postMarkets",
+  "discussions", "discussionImages", "discussionFiles", "discussionTags",
+  "discussionReplies", "discussionReplyImages", "discussionReplyFiles",
+  "discussionMetas", "discussionVisibilities", "discussionLanguages", "discussionMarkets",
   "events", "eventImages", "eventMetas", "eventVisibilities", "eventHosts",
   "eventAttendances", "eventAttendanceDocuments", "eventLanguages", "eventMarkets",
   "libraryItems", "libraryImages", "libraryDocuments", "libraryItemMetas",

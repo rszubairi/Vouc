@@ -114,15 +114,16 @@ export default defineSchema(
       .index("by_groupId", ["groupId"])
       .index("by_userId", ["userId"]),
 
-    // ─── Posts ────────────────────────────────────────────────────────────────
+    // ─── Discussions ──────────────────────────────────────────────────────────
 
-    posts: defineTable({
+    discussions: defineTable({
       userId: v.id("profiles"),
       topic: v.optional(v.string()),
       details: v.string(),
       chinaVideoLink: v.optional(v.string()),
       nonChinaVideoLink: v.optional(v.string()),
-      tag: v.optional(v.string()),
+      categoryId: v.optional(v.id("categories")),
+      status: v.union(v.literal("Open"), v.literal("Closed")),
       postDate: v.number(),
       selectedZone: v.optional(v.string()),
       allowRetweet: v.boolean(),
@@ -142,41 +143,81 @@ export default defineSchema(
       minRank: v.optional(v.string()),
     })
       .index("by_userId", ["userId"])
-      .index("by_postDate", ["postDate"]),
+      .index("by_postDate", ["postDate"])
+      .index("by_categoryId", ["categoryId"])
+      .index("by_status", ["status"])
+      .searchIndex("search_details", {
+        searchField: "details",
+        filterFields: ["isDeleted", "categoryId", "status"],
+      }),
 
-    postImages: defineTable({
-      postId: v.id("posts"),
+    discussionTags: defineTable({
+      discussionId: v.id("discussions"),
+      tag: v.string(), // normalized (lowercased/trimmed) at write time
+    })
+      .index("by_discussionId", ["discussionId"])
+      .index("by_tag", ["tag"]),
+
+    discussionImages: defineTable({
+      discussionId: v.id("discussions"),
       imageId: v.id("images"),
       order: v.number(),
-    }).index("by_postId", ["postId"]),
+    }).index("by_discussionId", ["discussionId"]),
 
-    postMetas: defineTable({
-      postId: v.id("posts"),
+    discussionFiles: defineTable({
+      discussionId: v.id("discussions"),
+      documentId: v.id("documents"),
+      order: v.number(),
+    }).index("by_discussionId", ["discussionId"]),
+
+    discussionReplies: defineTable({
+      discussionId: v.id("discussions"),
       userId: v.id("profiles"),
-      type: v.union(v.literal("Like"), v.literal("Endorse"), v.literal("Comment")),
-      comment: v.optional(v.string()),
+      body: v.string(),
+      isDeleted: v.boolean(),
+      replyDate: v.number(),
     })
-      .index("by_postId", ["postId"])
-      .index("by_postId_userId_type", ["postId", "userId", "type"]),
+      .index("by_discussionId", ["discussionId"])
+      .index("by_userId", ["userId"]),
 
-    postVisibilities: defineTable({
-      postId: v.id("posts"),
+    discussionReplyImages: defineTable({
+      replyId: v.id("discussionReplies"),
+      imageId: v.id("images"),
+      order: v.number(),
+    }).index("by_replyId", ["replyId"]),
+
+    discussionReplyFiles: defineTable({
+      replyId: v.id("discussionReplies"),
+      documentId: v.id("documents"),
+      order: v.number(),
+    }).index("by_replyId", ["replyId"]),
+
+    discussionMetas: defineTable({
+      discussionId: v.id("discussions"),
+      userId: v.id("profiles"),
+      type: v.union(v.literal("Like"), v.literal("Endorse")),
+    })
+      .index("by_discussionId", ["discussionId"])
+      .index("by_discussionId_userId_type", ["discussionId", "userId", "type"]),
+
+    discussionVisibilities: defineTable({
+      discussionId: v.id("discussions"),
       userId: v.id("profiles"),
       isRead: v.boolean(),
     })
-      .index("by_postId", ["postId"])
+      .index("by_discussionId", ["discussionId"])
       .index("by_userId", ["userId"])
-      .index("by_postId_userId", ["postId", "userId"]),
+      .index("by_discussionId_userId", ["discussionId", "userId"]),
 
-    postLanguages: defineTable({
-      postId: v.id("posts"),
+    discussionLanguages: defineTable({
+      discussionId: v.id("discussions"),
       language: v.string(),
-    }).index("by_postId", ["postId"]),
+    }).index("by_discussionId", ["discussionId"]),
 
-    postMarkets: defineTable({
-      postId: v.id("posts"),
+    discussionMarkets: defineTable({
+      discussionId: v.id("discussions"),
       market: v.string(),
-    }).index("by_postId", ["postId"]),
+    }).index("by_discussionId", ["discussionId"]),
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -358,7 +399,12 @@ export default defineSchema(
       name: v.string(),
       description: v.optional(v.string()),
       displayOrder: v.number(),
-    }).index("by_divisionId", ["divisionId"]),
+      // Which module this category applies to. Existing rows predate this
+      // field and are all Library categories; treat missing scope as "library".
+      scope: v.optional(v.union(v.literal("library"), v.literal("discussion"))),
+    })
+      .index("by_divisionId", ["divisionId"])
+      .index("by_scope", ["scope"]),
 
     // ─── Media ────────────────────────────────────────────────────────────────
 

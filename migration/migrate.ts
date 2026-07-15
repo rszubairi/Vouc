@@ -348,10 +348,10 @@ async function migrateSettings() {
   console.log(`  ✓ ${rows.length} rows`);
 }
 
-// ─── Phase 7: Posts ───────────────────────────────────────────────────────────
+// ─── Phase 7: Discussions (formerly Posts) ─────────────────────────────────────
 
 async function migratePosts() {
-  console.log("\n── Posts");
+  console.log("\n── Discussions");
   const rows = await query<any>(`
     SELECT Id, UserId, Topic, Details, ChinaVideoLink, NonChinaVideoLink,
            MinLevel, MaxLevel, MinRank, Tag, SelectedZone, PostDate,
@@ -363,58 +363,68 @@ async function migratePosts() {
   for (const r of rows) {
     const userId = getId("profiles", r.UserId);
     if (!userId) continue;
-    await upsert("posts", r.Id, {
+    const discussionId = await upsert("discussions", r.Id, {
       userId,
       topic: r.Topic ?? undefined,
       details: r.Details ?? "",
+      status: "Open",
       postDate: toMs(r.PostDate) ?? Date.now(),
       superAccount: false,
       ...visFlags(r),
     });
+    if (r.Tag) {
+      const tag = String(r.Tag).toLowerCase().trim();
+      if (tag) await upsert("discussionTags", `tag:${r.Id}`, { discussionId, tag });
+    }
   }
   console.log(`  ✓ ${rows.length} rows`);
 }
 
 async function migratePostChildren() {
-  console.log("\n── PostImages");
+  console.log("\n── DiscussionImages");
   const imgs = await query<any>(`SELECT Id, UserId, ImageId, PostId FROM PostImages`);
   if (!DRY_RUN) {
     const orderMap: Record<number, number> = {};
     for (const r of imgs.sort((a: any, b: any) => a.PostId - b.PostId || a.Id - b.Id)) {
       if (!orderMap[r.PostId]) orderMap[r.PostId] = 0;
-      const postId = getId("posts", r.PostId);
+      const discussionId = getId("discussions", r.PostId);
       const imageId = getId("images", r.ImageId);
-      if (!postId || !imageId) continue;
-      await upsert("postImages", r.Id, { postId, imageId, order: orderMap[r.PostId]++ });
+      if (!discussionId || !imageId) continue;
+      await upsert("discussionImages", r.Id, { discussionId, imageId, order: orderMap[r.PostId]++ });
     }
   }
   console.log(`  ✓ ${imgs.length} rows`);
 
-  console.log("\n── PostMeta");
+  console.log("\n── DiscussionMetas / DiscussionReplies");
   const metas = await query<any>(`SELECT Id, UserId, PostId, Type, Comment FROM PostMeta`);
   if (!DRY_RUN) {
-    const validTypes = new Set(["Like", "Endorse", "Comment"]);
     for (const r of metas) {
-      const postId = getId("posts", r.PostId);
+      const discussionId = getId("discussions", r.PostId);
       const userId = getId("profiles", r.UserId);
-      if (!postId || !userId) continue;
-      await upsert("postMetas", r.Id, {
-        postId, userId,
-        type: validTypes.has(r.Type) ? r.Type : "Comment",
-        comment: r.Comment ?? undefined,
-      });
+      if (!discussionId || !userId) continue;
+      if (r.Type === "Like" || r.Type === "Endorse") {
+        await upsert("discussionMetas", r.Id, { discussionId, userId, type: r.Type });
+      } else {
+        // Comment rows become their own reply documents.
+        await upsert("discussionReplies", r.Id, {
+          discussionId, userId,
+          body: r.Comment ?? "",
+          isDeleted: false,
+          replyDate: Date.now(),
+        });
+      }
     }
   }
   console.log(`  ✓ ${metas.length} rows`);
 
-  console.log("\n── PostVisibility");
+  console.log("\n── DiscussionVisibility");
   const vis = await query<any>(`SELECT Id, UserId, PostId, IsRead FROM PostVisibility`);
   if (!DRY_RUN) {
     await pool(vis, 8, async (r) => {
-      const postId = getId("posts", r.PostId);
+      const discussionId = getId("discussions", r.PostId);
       const userId = getId("profiles", r.UserId);
-      if (!postId || !userId) return;
-      await upsert("postVisibilities", r.Id, { postId, userId, isRead: bool(r.IsRead) });
+      if (!discussionId || !userId) return;
+      await upsert("discussionVisibilities", r.Id, { discussionId, userId, isRead: bool(r.IsRead) });
     });
   }
   console.log(`  ✓ ${vis.length} rows`);
@@ -422,20 +432,20 @@ async function migratePostChildren() {
   const langs = await query<any>(`SELECT Id, UserId, PostId, Language FROM PostLanguage`);
   if (!DRY_RUN) {
     for (const r of langs) {
-      const postId = getId("posts", r.PostId);
-      if (!postId) continue;
-      await upsert("postLanguages", r.Id, { postId, language: r.Language ?? "" });
+      const discussionId = getId("discussions", r.PostId);
+      if (!discussionId) continue;
+      await upsert("discussionLanguages", r.Id, { discussionId, language: r.Language ?? "" });
     }
   }
   const markets = await query<any>(`SELECT Id, UserId, PostId, Market FROM PostMarket`);
   if (!DRY_RUN) {
     for (const r of markets) {
-      const postId = getId("posts", r.PostId);
-      if (!postId) continue;
-      await upsert("postMarkets", r.Id, { postId, market: r.Market ?? "" });
+      const discussionId = getId("discussions", r.PostId);
+      if (!discussionId) continue;
+      await upsert("discussionMarkets", r.Id, { discussionId, market: r.Market ?? "" });
     }
   }
-  console.log(`── PostLanguage ✓${langs.length}  PostMarket ✓${markets.length}`);
+  console.log(`── DiscussionLanguage ✓${langs.length}  DiscussionMarket ✓${markets.length}`);
 }
 
 // ─── Phase 8: Events ──────────────────────────────────────────────────────────
@@ -776,10 +786,10 @@ async function migrateSupportData() {
 
 const VERIFY_PAIRS: Array<{ sql: string; convex: string }> = [
   { sql: "Profiles", convex: "profiles" },
-  { sql: "Posts", convex: "posts" },
+  { sql: "Posts", convex: "discussions" },
   { sql: "Events", convex: "events" },
   { sql: "LibraryItems", convex: "libraryItems" },
-  { sql: "PostVisibility", convex: "postVisibilities" },
+  { sql: "PostVisibility", convex: "discussionVisibilities" },
   { sql: "EventAttendance", convex: "eventAttendances" },
   { sql: "ProfileHierarchy", convex: "profileHierarchies" },
   { sql: "[Group]", convex: "groups" },

@@ -25,3 +25,5 @@ ios/build/
 # migration data/logs
 migration/export/
 migration/*.log
+apps/mobile/vouch.ipa
+apps/mobile/vouch.apk

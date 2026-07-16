@@ -329,9 +329,22 @@ export default function CreateDiscussionScreen() {
       </TouchableOpacity>
 
       <Modal visible={datePickerVisible} animationType="slide" transparent onRequestClose={() => setDatePickerVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Select Date</Text>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setDatePickerVisible(false)}
+        >
+          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Select Date</Text>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setDatePickerVisible(false)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
             <Calendar
               minDate={new Date().toISOString().split("T")[0]}
               onDayPress={(day: { dateString: string }) => {
@@ -345,17 +358,31 @@ export default function CreateDiscussionScreen() {
                 arrowColor: "#1C1B18",
               }}
             />
-            <TouchableOpacity style={styles.applyBtn} onPress={() => setDatePickerVisible(false)}>
-              <Text style={styles.applyBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       <Modal visible={zonePickerVisible} animationType="slide" transparent onRequestClose={() => setZonePickerVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, styles.zoneModalSheet]}>
-            <Text style={styles.modalTitle}>Select Timezone</Text>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setZonePickerVisible(false)}
+        >
+          <TouchableOpacity
+            style={[styles.modalSheet, styles.zoneModalSheet]}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Select Timezone</Text>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setZonePickerVisible(false)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
               value={zoneSearch}
@@ -382,8 +409,8 @@ export default function CreateDiscussionScreen() {
                 </TouchableOpacity>
               )}
             />
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </ScrollView>
     </KeyboardAvoidingView>
@@ -479,7 +506,16 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
   zoneModalSheet: { height: "80%" },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#1C1B18", marginBottom: 16 },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#1C1B18" },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FAF5EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   zoneList: { marginTop: 12 },
   zoneRow: {
     flexDirection: "row",

@@ -13,7 +13,7 @@ async function getCallerProfile(ctx: any) {
     .query("profiles")
     .withIndex("by_userId", (q: any) => q.eq("userId", authUserId))
     .first();
-  if (!profile || profile.deleteAccount) throw new Error("Profile not found");
+  if (!profile || profile.deleteAccount || profile.isDisabled) throw new Error("Profile not found");
   return profile;
 }
 
@@ -173,7 +173,7 @@ export const calendarEvents = query({
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", authUserId))
       .first();
-    if (!callerProfile || callerProfile.deleteAccount) return [];
+    if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
 
     let eventIds: Set<Id<"events">>;
     if (callerProfile.fullAccess) {

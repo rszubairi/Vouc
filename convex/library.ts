@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
+import { countEngagement, isEngagedBy } from "./engagements";
 
 async function getCallerProfile(ctx: any) {
   const authUserId = await getAuthUserId(ctx);
@@ -12,7 +13,7 @@ async function getCallerProfile(ctx: any) {
     .query("profiles")
     .withIndex("by_userId", (q: any) => q.eq("userId", authUserId))
     .first();
-  if (!profile || profile.deleteAccount) throw new Error("Profile not found");
+  if (!profile || profile.deleteAccount || profile.isDisabled) throw new Error("Profile not found");
   return profile;
 }
 
@@ -47,8 +48,11 @@ export const listItems = query({
     categoryId: v.optional(v.id("categories")),
     type: v.optional(v.string()),
     limit: v.optional(v.number()),
+    sortBy: v.optional(
+      v.union(v.literal("recent"), v.literal("liked"), v.literal("starred"))
+    ),
   },
-  handler: async (ctx, { categoryId, type, limit = 30 }) => {
+  handler: async (ctx, { categoryId, type, limit = 30, sortBy = "recent" }) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return [];
 
@@ -56,7 +60,7 @@ export const listItems = query({
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", authUserId))
       .first();
-    if (!callerProfile || callerProfile.deleteAccount) return [];
+    if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
 
     let itemIds: Set<Id<"libraryItems">>;
     if (callerProfile.fullAccess) {
@@ -101,14 +105,29 @@ export const listItems = query({
         ? (await ctx.db.get(creatorImage.imageId))?.url ?? null
         : null;
 
+      const likeCount = await countEngagement(ctx, "libraryItem", item._id, "Like");
+      const starCount = await countEngagement(ctx, "libraryItem", item._id, "Star");
+      const isLiked = await isEngagedBy(ctx, "libraryItem", item._id, "Like", callerProfile._id);
+      const isStarred = await isEngagedBy(ctx, "libraryItem", item._id, "Star", callerProfile._id);
+
       results.push({
         ...item,
         creatorNickName: creator?.nickName ?? "",
         creatorProfileImageUrl,
+        likeCount,
+        starCount,
+        isLiked,
+        isStarred,
       });
     }
 
-    results.sort((a, b) => b.postDate - a.postDate);
+    if (sortBy === "liked") {
+      results.sort((a, b) => b.likeCount - a.likeCount || b.postDate - a.postDate);
+    } else if (sortBy === "starred") {
+      results.sort((a, b) => b.starCount - a.starCount || b.postDate - a.postDate);
+    } else {
+      results.sort((a, b) => b.postDate - a.postDate);
+    }
     return results.slice(0, limit);
   },
 });
@@ -118,6 +137,14 @@ export const getItem = query({
   handler: async (ctx, { itemId }) => {
     const item = await ctx.db.get(itemId);
     if (!item || item.isDeleted) return null;
+
+    const authUserId = await getAuthUserId(ctx);
+    const callerProfile = authUserId
+      ? await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", authUserId))
+          .first()
+      : null;
 
     const creator = await ctx.db.get(item.userId);
     const creatorImage = creator
@@ -162,9 +189,16 @@ export const getItem = query({
       creatorProfileImageUrl,
       images: imageUrls,
       documents: docList,
-      likeCount: metas.filter((m) => m.type === "Like").length,
+      likeCount: await countEngagement(ctx, "libraryItem", itemId, "Like"),
       endorseCount: metas.filter((m) => m.type === "Endorse").length,
       commentCount: metas.filter((m) => m.type === "Comment").length,
+      starCount: await countEngagement(ctx, "libraryItem", itemId, "Star"),
+      isLiked: callerProfile
+        ? await isEngagedBy(ctx, "libraryItem", itemId, "Like", callerProfile._id)
+        : false,
+      isStarred: callerProfile
+        ? await isEngagedBy(ctx, "libraryItem", itemId, "Star", callerProfile._id)
+        : false,
     };
   },
 });

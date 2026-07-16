@@ -16,6 +16,7 @@ import type * as contactUs from "../contactUs.js";
 import type * as directoryCategoriesData from "../directoryCategoriesData.js";
 import type * as discussions from "../discussions.js";
 import type * as divisions from "../divisions.js";
+import type * as engagements from "../engagements.js";
 import type * as events from "../events.js";
 import type * as groups from "../groups.js";
 import type * as hierarchy from "../hierarchy.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   directoryCategoriesData: typeof directoryCategoriesData;
   discussions: typeof discussions;
   divisions: typeof divisions;
+  engagements: typeof engagements;
   events: typeof events;
   groups: typeof groups;
   hierarchy: typeof hierarchy;

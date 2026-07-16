@@ -32,6 +32,11 @@ type DataTableProps<T> = {
    * under this key so the layout survives reloads.
    */
   storageKey?: string;
+  /** Enables a checkbox column for multi-row selection. */
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: (ids: string[]) => void;
 };
 
 const MIN_COL_WIDTH = 80;
@@ -61,6 +66,10 @@ export function DataTable<T>({
   actions,
   addButton,
   storageKey,
+  selectable,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -242,6 +251,7 @@ export function DataTable<T>({
       <div className="bg-white rounded-xl border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
         <table className="text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
+            {selectable && <col style={{ width: 40 }} />}
             {orderedColumns.map((col) => (
               <col key={col.key} style={{ width: widthFor(col) }} />
             ))}
@@ -249,6 +259,17 @@ export function DataTable<T>({
           </colgroup>
           <thead>
             <tr>
+              {selectable && (
+                <th className="sticky top-0 z-10 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={
+                      !!sorted && sorted.length > 0 && sorted.every((row) => selectedIds?.has(getRowId(row)))
+                    }
+                    onChange={() => onToggleAll?.((sorted ?? []).map((row) => getRowId(row)))}
+                  />
+                </th>
+              )}
               {orderedColumns.map((col) => (
                 <th
                   key={col.key}
@@ -303,7 +324,7 @@ export function DataTable<T>({
             {sorted === undefined ? (
               <tr>
                 <td
-                  colSpan={orderedColumns.length + (actions ? 1 : 0)}
+                  colSpan={orderedColumns.length + (actions ? 1 : 0) + (selectable ? 1 : 0)}
                   className="text-center text-gray-400 py-10"
                 >
                   Loading...
@@ -312,7 +333,7 @@ export function DataTable<T>({
             ) : sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={orderedColumns.length + (actions ? 1 : 0)}
+                  colSpan={orderedColumns.length + (actions ? 1 : 0) + (selectable ? 1 : 0)}
                   className="text-center text-gray-400 py-10"
                 >
                   {emptyMessage}
@@ -321,6 +342,15 @@ export function DataTable<T>({
             ) : (
               sorted.map((row) => (
                 <tr key={getRowId(row)} className="hover:bg-gray-50">
+                  {selectable && (
+                    <td className="px-4 py-3 align-top">
+                      <input
+                        type="checkbox"
+                        checked={!!selectedIds?.has(getRowId(row))}
+                        onChange={() => onToggleSelect?.(getRowId(row))}
+                      />
+                    </td>
+                  )}
                   {orderedColumns.map((col) => (
                     <td
                       key={col.key}

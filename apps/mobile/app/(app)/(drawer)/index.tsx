@@ -14,7 +14,7 @@ import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -49,9 +49,10 @@ type FeedDiscussion = {
   replyCount: number;
   mustRead: boolean;
   isRead: boolean;
-  isPinned: boolean;
   isLiked: boolean;
   isEndorsed: boolean;
+  starCount: number;
+  isStarred: boolean;
   postDate: number;
   nonChinaVideoLink?: string;
   chinaVideoLink?: string;
@@ -61,6 +62,11 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
   const router = useRouter();
   const isLong = discussion.details.length > 200;
   const isClosed = discussion.status === "Closed";
+  const toggleEngagement = useMutation(api.engagements.toggleEngagement);
+
+  function handleStar() {
+    toggleEngagement({ targetType: "discussion", targetId: discussion._id, kind: "Star" });
+  }
 
   async function handleShare() {
     const appLink = Linking.createURL(`discussion/${discussion._id}`);
@@ -85,12 +91,6 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
       activeOpacity={0.85}
     >
       <View style={styles.badgeRow}>
-        {discussion.isPinned && (
-          <View style={styles.pinnedBadge}>
-            <Ionicons name="pin" size={11} color="#F2650C" />
-            <Text style={styles.pinnedText}>Pinned</Text>
-          </View>
-        )}
         {discussion.mustRead && !discussion.isRead && (
           <View style={styles.mustReadBadge}>
             <Text style={styles.mustReadText}>Must Read</Text>
@@ -163,6 +163,20 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           style={styles.shareIcon}
           onPress={(e) => {
             e.stopPropagation();
+            handleStar();
+          }}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={discussion.isStarred ? "bookmark" : "bookmark-outline"}
+            size={16}
+            color={discussion.isStarred ? "#F2650C" : "#666"}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.shareIcon}
+          onPress={(e) => {
+            e.stopPropagation();
             handleShare();
           }}
           hitSlop={8}
@@ -178,7 +192,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
 }
 
 type StatusFilter = "All" | "Open" | "Closed";
-type SortMode = "recent" | "active";
+type SortMode = "recent" | "active" | "liked" | "starred";
 
 export default function DiscussionsFeedScreen() {
   const router = useRouter();
@@ -355,6 +369,18 @@ export default function DiscussionsFeedScreen() {
               >
                 <Text style={[styles.chipText, sort === "active" && styles.chipTextActive]}>Most Active</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, sort === "liked" && styles.chipActive]}
+                onPress={() => setSort("liked")}
+              >
+                <Text style={[styles.chipText, sort === "liked" && styles.chipTextActive]}>Most Liked</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, sort === "starred" && styles.chipActive]}
+                onPress={() => setSort("starred")}
+              >
+                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Star</Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.applyBtn} onPress={() => setFilterVisible(false)}>
@@ -456,16 +482,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   badgeRow: { flexDirection: "row", gap: 6, marginBottom: 8, flexWrap: "wrap" },
-  pinnedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "#F5EFE0",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  pinnedText: { color: "#F2650C", fontSize: 11, fontWeight: "700" },
   mustReadBadge: {
     backgroundColor: "#e74c3c",
     borderRadius: 6,

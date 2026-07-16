@@ -22,7 +22,11 @@ function CustomDrawerContent(props: any) {
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={styles.drawerContainer}>
       {/* Logo */}
-      <Text style={styles.logo}>Vouch</Text>
+      <Image
+        source={require("../../../assets/logo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
 
       {/* Profile header */}
       <TouchableOpacity
@@ -112,12 +116,10 @@ export default function DrawerLayout() {
 const styles = StyleSheet.create({
   drawerContainer: { flex: 1, backgroundColor: "#F5EFE0" },
   logo: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#F2650C",
-    letterSpacing: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    height: 32,
+    width: 120,
+    marginHorizontal: 20,
+    marginTop: 24,
   },
   profileHeader: {
     flexDirection: "row",

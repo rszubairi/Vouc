@@ -16,6 +16,7 @@ export async function requireAdmin(
     .first();
 
   if (!profile || !profile.isAdmin) throw new Error("Admin access required");
+  if (profile.deleteAccount || profile.isDisabled) throw new Error("Account is disabled");
 
   return profile;
 }

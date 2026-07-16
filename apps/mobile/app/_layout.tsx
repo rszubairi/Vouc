@@ -1,12 +1,13 @@
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient, useConvexAuth } from "convex/react";
+import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
+import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Alert } from "react-native";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import { OnboardingContext } from "../contexts/OnboardingContext";
-import VouchSplashScreen from "../components/SplashScreen";
+import { api } from "../../../convex/_generated/api";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -23,8 +24,27 @@ const convex = new ConvexReactClient(
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const { hasSeenOnboarding, onboardingLoaded } = useContext(OnboardingContext);
+  const { signOut } = useAuthActions();
   const segments = useSegments();
   const router = useRouter();
+
+  // Reactive: fires again the moment an admin disables this account, even
+  // mid-session, since Convex queries re-run on the server-side change.
+  const accountStatus = useQuery(api.profiles.myAccountStatus, isAuthenticated ? {} : "skip");
+  const handledDisabled = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated && accountStatus === "disabled" && !handledDisabled.current) {
+      handledDisabled.current = true;
+      signOut();
+      Alert.alert(
+        "Account disabled",
+        "Your account has been disabled. Contact support if you believe this is a mistake."
+      );
+    } else if (!isAuthenticated) {
+      handledDisabled.current = false;
+    }
+  }, [isAuthenticated, accountStatus, signOut]);
 
   useEffect(() => {
     if (isLoading || !onboardingLoaded) return;
@@ -49,7 +69,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
   const [onboardingLoaded, setOnboardingLoaded] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     async function init() {
@@ -72,7 +91,6 @@ export default function RootLayout() {
         <AuthGate>
           <Stack screenOptions={{ headerShown: false }} />
         </AuthGate>
-        {showSplash && <VouchSplashScreen onFinish={() => setShowSplash(false)} />}
       </ConvexAuthProvider>
     </OnboardingContext.Provider>
   );

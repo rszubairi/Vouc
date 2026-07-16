@@ -39,6 +39,7 @@ type Profile = {
   sponsorApproved: boolean;
   fullAccess: boolean;
   isAdmin?: boolean;
+  isDisabled?: boolean;
 };
 
 export default function ProfilesPage() {
@@ -47,8 +48,42 @@ export default function ProfilesPage() {
   const setFullAccess = useMutation(api.profiles.adminSetFullAccess);
   const deleteProfile = useMutation(api.profiles.adminDeleteProfile);
   const updateProfile = useMutation(api.profiles.adminUpdateProfile);
+  const setDisabled = useMutation(api.profiles.adminSetDisabled);
+  const bulkSetDisabled = useMutation(api.profiles.adminBulkSetDisabled);
 
   const [editing, setEditing] = useState<Profile | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(ids);
+    });
+  };
+
+  const handleBulkSetDisabled = async (isDisabled: boolean) => {
+    if (selectedIds.size === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      await bulkSetDisabled({
+        profileIds: Array.from(selectedIds) as Id<"profiles">[],
+        isDisabled,
+      });
+      setSelectedIds(new Set());
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
 
   const columns: Column<Profile>[] = [
     { key: "nickName", label: "Nickname", defaultWidth: 130 },
@@ -106,6 +141,25 @@ export default function ProfilesPage() {
       ],
       filterValue: (p) => (p.fullAccess ? "Yes" : "No"),
     },
+    {
+      key: "isDisabled",
+      label: "Status",
+      defaultWidth: 110,
+      render: (p) => (
+        <span
+          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+            p.isDisabled ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+          }`}
+        >
+          {p.isDisabled ? "Disabled" : "Active"}
+        </span>
+      ),
+      filterOptions: [
+        { label: "Active", value: "Active" },
+        { label: "Disabled", value: "Disabled" },
+      ],
+      filterValue: (p) => (p.isDisabled ? "Disabled" : "Active"),
+    },
   ];
 
   return (
@@ -120,12 +174,36 @@ export default function ProfilesPage() {
         </Link>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
+          <button
+            onClick={() => handleBulkSetDisabled(true)}
+            disabled={isBulkUpdating}
+            className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {isBulkUpdating ? "Updating..." : `Disable Selected (${selectedIds.size})`}
+          </button>
+          <button
+            onClick={() => handleBulkSetDisabled(false)}
+            disabled={isBulkUpdating}
+            className="text-sm px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:border-[#F2650C] hover:text-[#F2650C] disabled:opacity-50"
+          >
+            {isBulkUpdating ? "Updating..." : `Enable Selected (${selectedIds.size})`}
+          </button>
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={profiles}
         getRowId={(p) => p._id}
         searchPlaceholder="Search profiles..."
         storageKey="profiles-table"
+        selectable
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+        onToggleAll={toggleAll}
         actions={(row) => (
           <div className="flex justify-end gap-3">
             <button onClick={() => setEditing(row)} className="text-sm text-blue-600 hover:underline">
@@ -136,6 +214,12 @@ export default function ProfilesPage() {
               className="text-sm text-blue-600 hover:underline"
             >
               {row.fullAccess ? "Revoke Access" : "Grant Access"}
+            </button>
+            <button
+              onClick={() => setDisabled({ profileId: row._id, isDisabled: !row.isDisabled })}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              {row.isDisabled ? "Enable" : "Disable"}
             </button>
             <button
               onClick={() => {

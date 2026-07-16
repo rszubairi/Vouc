@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./adminAuth";
 import { Id } from "./_generated/dataModel";
+import { countEngagement, isEngagedBy } from "./engagements";
 
 // Get the currently authenticated user's profile.
 export const me = query({
@@ -17,7 +18,7 @@ export const me = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
 
-    if (!profile || profile.deleteAccount) return null;
+    if (!profile || profile.deleteAccount || profile.isDisabled) return null;
 
     const image = await ctx.db
       .query("profileImages")
@@ -31,6 +32,26 @@ export const me = query({
     }
 
     return { ...profile, profileImageUrl: null };
+  },
+});
+
+// Account status for the signed-in user, used by clients to distinguish a
+// disabled account from simply being signed out or not having a profile yet
+// (states that `me` collapses to `null`).
+export const myAccountStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return "signed-out" as const;
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    if (!profile) return "no-profile" as const;
+    if (profile.isDisabled) return "disabled" as const;
+    if (profile.deleteAccount) return "deleted" as const;
+    return "active" as const;
   },
 });
 
@@ -203,7 +224,7 @@ export const getById = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, { profileId }) => {
     const profile = await ctx.db.get(profileId);
-    if (!profile || profile.deleteAccount) return null;
+    if (!profile || profile.deleteAccount || profile.isDisabled) return null;
 
     const image = await ctx.db
       .query("profileImages")
@@ -298,13 +319,42 @@ export const requestDeleteAccount = mutation({
 
 // Get list of all profiles for network browsing (any signed-in user).
 export const listDirectory = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    sort: v.optional(
+      v.union(v.literal("recent"), v.literal("liked"), v.literal("starred"))
+    ),
+  },
+  handler: async (ctx, { sort = "recent" }) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Not authenticated");
 
-    const profiles = await ctx.db.query("profiles").order("desc").take(1000);
-    return profiles.filter((p) => !p.deleteAccount);
+    const callerProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", authUserId))
+      .first();
+    if (!callerProfile) throw new Error("Profile not found");
+
+    const profiles = (await ctx.db.query("profiles").order("desc").take(1000)).filter(
+      (p) => !p.deleteAccount && !p.isDisabled
+    );
+
+    const enriched = await Promise.all(
+      profiles.map(async (p) => ({
+        ...p,
+        likeCount: await countEngagement(ctx, "profile", p._id, "Like"),
+        starCount: await countEngagement(ctx, "profile", p._id, "Star"),
+        isLiked: await isEngagedBy(ctx, "profile", p._id, "Like", callerProfile._id),
+        isStarred: await isEngagedBy(ctx, "profile", p._id, "Star", callerProfile._id),
+      }))
+    );
+
+    if (sort === "liked") {
+      enriched.sort((a, b) => b.likeCount - a.likeCount || b._creationTime - a._creationTime);
+    } else if (sort === "starred") {
+      enriched.sort((a, b) => b.starCount - a.starCount || b._creationTime - a._creationTime);
+    }
+
+    return enriched;
   },
 });
 
@@ -474,6 +524,35 @@ export const adminBulkDeleteProfiles = mutation({
       await ctx.db.patch(profileId, {
         deleteAccount: true,
         deleteRequestDate: now,
+      });
+    }
+  },
+});
+
+// Admin enables/disables a single profile. A disabled profile is blocked from
+// signing in and from all profile-scoped access, but stays visible (unlike
+// adminDeleteProfile) so it can be re-enabled.
+export const adminSetDisabled = mutation({
+  args: { profileId: v.id("profiles"), isDisabled: v.boolean() },
+  handler: async (ctx, { profileId, isDisabled }) => {
+    await requireAdmin(ctx);
+    await ctx.db.patch(profileId, {
+      isDisabled,
+      disabledAt: isDisabled ? Date.now() : undefined,
+    });
+  },
+});
+
+// Admin enables/disables multiple profiles at once.
+export const adminBulkSetDisabled = mutation({
+  args: { profileIds: v.array(v.id("profiles")), isDisabled: v.boolean() },
+  handler: async (ctx, { profileIds, isDisabled }) => {
+    await requireAdmin(ctx);
+    const now = Date.now();
+    for (const profileId of profileIds) {
+      await ctx.db.patch(profileId, {
+        isDisabled,
+        disabledAt: isDisabled ? now : undefined,
       });
     }
   },

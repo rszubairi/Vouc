@@ -104,6 +104,13 @@ export const list = query({
   },
 });
 
+export const get = query({
+  args: { id: v.id("categories") },
+  handler: async (ctx, { id }) => {
+    return await ctx.db.get(id);
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),

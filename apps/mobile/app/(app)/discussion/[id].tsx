@@ -98,11 +98,11 @@ export default function DiscussionDetailScreen() {
   const router = useRouter();
   const discussion = useQuery(api.discussions.getDiscussion, id ? { discussionId: id as Id<"discussions"> } : "skip");
   const engage = useMutation(api.discussions.engage);
+  const toggleEngagement = useMutation(api.engagements.toggleEngagement);
   const deleteDiscussion = useMutation(api.discussions.deleteDiscussion);
   const markRead = useMutation(api.discussions.markRead);
   const updateStatus = useMutation(api.discussions.updateStatus);
   const addReply = useMutation(api.discussions.addReply);
-  const togglePin = useMutation(api.discussions.togglePin);
   const toggleFollow = useMutation(api.discussions.toggleFollow);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const scrollRef = useRef<ScrollView>(null);
@@ -131,8 +131,12 @@ export default function DiscussionDetailScreen() {
     await engage({ discussionId: id as Id<"discussions">, type: "Endorse" });
   }
 
-  async function handleTogglePin() {
-    await togglePin({ discussionId: id as Id<"discussions"> });
+  async function handleStar() {
+    await toggleEngagement({
+      targetType: "discussion",
+      targetId: id as string,
+      kind: "Star",
+    });
   }
 
   async function handleToggleFollow() {
@@ -275,18 +279,6 @@ export default function DiscussionDetailScreen() {
               color={discussion.isFollowing ? "#F2650C" : "#1C1B18"}
             />
           </TouchableOpacity>
-          {discussion.isAdmin && (
-            <TouchableOpacity
-              style={[styles.iconBtn, discussion.isPinned && styles.iconBtnActive]}
-              onPress={handleTogglePin}
-            >
-              <Ionicons
-                name={discussion.isPinned ? "pin" : "pin-outline"}
-                size={18}
-                color={discussion.isPinned ? "#F2650C" : "#1C1B18"}
-              />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
             <Ionicons name="share-outline" size={18} color="#1C1B18" />
           </TouchableOpacity>
@@ -299,12 +291,6 @@ export default function DiscussionDetailScreen() {
       </View>
 
       <View style={styles.statusRow}>
-        {discussion.isPinned && (
-          <View style={styles.pinnedBadge}>
-            <Ionicons name="pin" size={11} color="#F2650C" />
-            <Text style={styles.pinnedText}>Pinned</Text>
-          </View>
-        )}
         <View style={[styles.statusBadge, isClosed ? styles.statusClosed : styles.statusOpen]}>
           <Text style={styles.statusText}>{isClosed ? "Closed" : "Open"}</Text>
         </View>
@@ -372,6 +358,19 @@ export default function DiscussionDetailScreen() {
           <Ionicons name="chatbubble-outline" size={16} color="#333" />
           <Text style={styles.engBtnText}>{discussion.replies.length}</Text>
         </View>
+        <TouchableOpacity
+          style={[styles.engBtn, discussion.isStarred && styles.engBtnActive]}
+          onPress={handleStar}
+        >
+          <Ionicons
+            name={discussion.isStarred ? "bookmark" : "bookmark-outline"}
+            size={16}
+            color={discussion.isStarred ? "#F2650C" : "#333"}
+          />
+          <Text style={[styles.engBtnText, discussion.isStarred && styles.engBtnTextActive]}>
+            {discussion.starCount}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {discussion.isOwner && !isClosed && (
@@ -492,16 +491,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconBtnActive: { backgroundColor: "#F5EFE0" },
-  pinnedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "#F5EFE0",
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  pinnedText: { color: "#F2650C", fontSize: 12, fontWeight: "700" },
   deleteBtn: {
     backgroundColor: "#fdecea",
     borderRadius: 8,

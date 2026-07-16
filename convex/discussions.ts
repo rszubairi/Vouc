@@ -4,7 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
-import { requireAdmin } from "./adminAuth";
+import { countEngagement, isEngagedBy } from "./engagements";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ async function getCallerProfile(ctx: any) {
     .query("profiles")
     .withIndex("by_userId", (q: any) => q.eq("userId", authUserId))
     .first();
-  if (!profile || profile.deleteAccount) throw new Error("Profile not found");
+  if (!profile || profile.deleteAccount || profile.isDisabled) throw new Error("Profile not found");
   return profile;
 }
 
@@ -153,7 +153,9 @@ export const list = query({
     status: v.optional(v.union(v.literal("Open"), v.literal("Closed"))),
     dateFrom: v.optional(v.number()),
     dateTo: v.optional(v.number()),
-    sort: v.optional(v.union(v.literal("recent"), v.literal("active"))),
+    sort: v.optional(
+      v.union(v.literal("recent"), v.literal("active"), v.literal("liked"), v.literal("starred"))
+    ),
   },
   handler: async (ctx, args) => {
     const { limit = 30, keyword, categoryId, authorId, status, dateFrom, dateTo, sort = "recent" } = args;
@@ -165,7 +167,7 @@ export const list = query({
       .query("profiles")
       .withIndex("by_userId", (q: any) => q.eq("userId", authUserId))
       .first();
-    if (!callerProfile || callerProfile.deleteAccount) return [];
+    if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
 
     let allIds: Set<Id<"discussions">>;
     let visibilities: Array<{ discussionId: Id<"discussions">; isRead: boolean }>;
@@ -262,6 +264,8 @@ export const list = query({
       const likeCount = metas.filter((m: any) => m.type === "Like").length;
       const endorseCount = metas.filter((m: any) => m.type === "Endorse").length;
       const replyCount = replies.length;
+      const starCount = await countEngagement(ctx, "discussion", d._id, "Star");
+      const isStarred = await isEngagedBy(ctx, "discussion", d._id, "Star", callerProfile._id);
 
       result.push({
         ...d,
@@ -274,9 +278,10 @@ export const list = query({
         likeCount,
         endorseCount,
         replyCount,
+        starCount,
+        isStarred,
         isRead,
         isOwner: d.userId === callerProfile._id,
-        isPinned: d.pinnedAt !== undefined,
         isLiked: metas.some((m: any) => m.userId === callerProfile._id && m.type === "Like"),
         isEndorsed: metas.some((m: any) => m.userId === callerProfile._id && m.type === "Endorse"),
         activityScore: likeCount + endorseCount + replyCount,
@@ -285,17 +290,13 @@ export const list = query({
 
     if (sort === "active") {
       result.sort((a, b) => b.activityScore - a.activityScore || b.postDate - a.postDate);
+    } else if (sort === "liked") {
+      result.sort((a, b) => b.likeCount - a.likeCount || b.postDate - a.postDate);
+    } else if (sort === "starred") {
+      result.sort((a, b) => b.starCount - a.starCount || b.postDate - a.postDate);
     } else {
       result.sort((a, b) => b.postDate - a.postDate);
     }
-
-    // Pinned discussions always float to the top, newest pin first.
-    result.sort((a, b) => {
-      const aPin = a.pinnedAt ?? -1;
-      const bPin = b.pinnedAt ?? -1;
-      if (aPin === -1 && bPin === -1) return 0;
-      return bPin - aPin;
-    });
 
     return result.slice(0, limit);
   },
@@ -385,12 +386,15 @@ export const getDiscussion = query({
       replies,
       isOwner: callerProfile ? discussion.userId === callerProfile._id : false,
       isAdmin: callerProfile ? !!callerProfile.isAdmin : false,
-      isPinned: discussion.pinnedAt !== undefined,
       isLiked: callerProfile
         ? metas.some((m: any) => m.userId === callerProfile._id && m.type === "Like")
         : false,
       isEndorsed: callerProfile
         ? metas.some((m: any) => m.userId === callerProfile._id && m.type === "Endorse")
+        : false,
+      starCount: await countEngagement(ctx, "discussion", discussionId, "Star"),
+      isStarred: callerProfile
+        ? await isEngagedBy(ctx, "discussion", discussionId, "Star", callerProfile._id)
         : false,
       isFollowing: callerProfile
         ? followers.some((f: any) => f.followerId === callerProfile._id)
@@ -587,20 +591,6 @@ export const addReply = mutation({
     }
 
     return replyId;
-  },
-});
-
-// Toggle pin state. Pinned discussions sort to the top of the feed.
-// Admin/moderator only.
-export const togglePin = mutation({
-  args: { discussionId: v.id("discussions") },
-  handler: async (ctx, { discussionId }) => {
-    await requireAdmin(ctx);
-    const discussion = await ctx.db.get(discussionId);
-    if (!discussion) throw new Error("Discussion not found");
-    const pinned = discussion.pinnedAt !== undefined;
-    await ctx.db.patch(discussionId, { pinnedAt: pinned ? undefined : Date.now() });
-    return { pinned: !pinned };
   },
 });
 

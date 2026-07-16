@@ -20,6 +20,7 @@ export default function LibraryItemDetailScreen() {
   const me = useQuery(api.profiles.me);
   const item = useQuery(api.library.getItem, id ? { itemId: id as Id<"libraryItems"> } : "skip");
   const deleteLibraryItem = useMutation(api.library.deleteLibraryItem);
+  const toggleEngagement = useMutation(api.engagements.toggleEngagement);
 
   if (item === undefined || me === undefined) {
     return <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />;
@@ -83,9 +84,26 @@ export default function LibraryItemDetailScreen() {
       ))}
 
       <View style={styles.statsRow}>
-        <Text style={styles.statText}>👍 {item.likeCount}</Text>
+        <TouchableOpacity
+          onPress={() =>
+            toggleEngagement({ targetType: "libraryItem", targetId: id as string, kind: "Like" })
+          }
+        >
+          <Text style={[styles.statText, item.isLiked && styles.statTextActive]}>
+            👍 {item.likeCount}
+          </Text>
+        </TouchableOpacity>
         <Text style={styles.statText}>⭐ {item.endorseCount}</Text>
         <Text style={styles.statText}>💬 {item.commentCount}</Text>
+        <TouchableOpacity
+          onPress={() =>
+            toggleEngagement({ targetType: "libraryItem", targetId: id as string, kind: "Star" })
+          }
+        >
+          <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>
+            🔖 {item.starCount}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {isOwner && (
@@ -121,6 +139,7 @@ const styles = StyleSheet.create({
   docText: { fontSize: 14, color: "#1C1B18", fontWeight: "600" },
   statsRow: { flexDirection: "row", gap: 16, marginVertical: 14 },
   statText: { fontSize: 13, color: "#555" },
+  statTextActive: { color: "#F2650C", fontWeight: "700" },
   deleteBtn: { alignItems: "center", marginTop: 20, padding: 10 },
   deleteBtnText: { color: "#c0392b", fontWeight: "700", fontSize: 14 },
 });

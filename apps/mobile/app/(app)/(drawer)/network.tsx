@@ -8,14 +8,18 @@ import {
   FlatList,
   Image,
   RefreshControl,
+  Modal,
 } from "react-native";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useRouter } from "expo-router";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
+
+type SortMode = "recent" | "liked" | "starred";
 
 function formatMemberSince(creationTime: number) {
   return new Date(creationTime).toLocaleDateString(undefined, {
@@ -28,11 +32,14 @@ export default function NetworkScreen() {
   const router = useRouter();
   const me = useQuery(api.profiles.me);
   const pending = useQuery(api.profiles.pendingApprovals, {});
-  const all = useQuery(api.profiles.listDirectory, {});
+  const [sort, setSort] = useState<SortMode>("recent");
+  const all = useQuery(api.profiles.listDirectory, { sort });
   const approveSponsor = useMutation(api.profiles.approveSponsor);
+  const toggleEngagement = useMutation(api.engagements.toggleEngagement);
   const [search, setSearch] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortVisible, setSortVisible] = useState(false);
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
   useHeaderSearchButton(searchVisible, toggleSearch);
 
@@ -69,6 +76,7 @@ export default function NetworkScreen() {
   }
 
   return (
+    <>
     <FlatList
       style={styles.container}
       contentContainerStyle={styles.list}
@@ -110,14 +118,24 @@ export default function NetworkScreen() {
 
           <Text style={styles.sectionTitle}>Directory</Text>
           {searchVisible && (
-            <TextInput
-              style={styles.search}
-              placeholder="Search by name, city, or country"
-              placeholderTextColor="#999"
-              value={search}
-              onChangeText={setSearch}
-              autoFocus
-            />
+            <View style={styles.searchBar}>
+              <TextInput
+                style={styles.search}
+                placeholder="Search by name, city, or country"
+                placeholderTextColor="#999"
+                value={search}
+                onChangeText={setSearch}
+                autoFocus
+              />
+              <TouchableOpacity style={styles.filterIconBtn} onPress={() => setSortVisible(true)}>
+                <Ionicons name="filter" size={18} color="#1C1B18" />
+                {sort !== "recent" && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>1</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       }
@@ -140,6 +158,34 @@ export default function NetworkScreen() {
             <Text style={styles.subText}>{item.city}, {item.country}</Text>
             <Text style={styles.memberSince}>Member since {formatMemberSince(item._creationTime)}</Text>
           </View>
+          <TouchableOpacity
+            style={styles.rowActionBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              toggleEngagement({ targetType: "profile", targetId: item._id, kind: "Like" });
+            }}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={item.isLiked ? "thumbs-up" : "thumbs-up-outline"}
+              size={16}
+              color={item.isLiked ? "#F2650C" : "#666"}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.rowActionBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              toggleEngagement({ targetType: "profile", targetId: item._id, kind: "Star" });
+            }}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={item.isStarred ? "bookmark" : "bookmark-outline"}
+              size={16}
+              color={item.isStarred ? "#F2650C" : "#666"}
+            />
+          </TouchableOpacity>
         </TouchableOpacity>
       )}
       ListEmptyComponent={
@@ -148,6 +194,41 @@ export default function NetworkScreen() {
         </View>
       }
     />
+
+    <Modal visible={sortVisible} animationType="slide" transparent onRequestClose={() => setSortVisible(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalSheet}>
+          <Text style={styles.modalTitle}>Sort Directory</Text>
+
+          <Text style={styles.modalLabel}>Sort by</Text>
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              style={[styles.chip, sort === "recent" && styles.chipActive]}
+              onPress={() => setSort("recent")}
+            >
+              <Text style={[styles.chipText, sort === "recent" && styles.chipTextActive]}>Most Recent</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, sort === "liked" && styles.chipActive]}
+              onPress={() => setSort("liked")}
+            >
+              <Text style={[styles.chipText, sort === "liked" && styles.chipTextActive]}>Most Liked</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, sort === "starred" && styles.chipActive]}
+              onPress={() => setSort("starred")}
+            >
+              <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Star</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.applyBtn} onPress={() => setSortVisible(false)}>
+            <Text style={styles.applyBtnText}>Apply</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -201,4 +282,59 @@ const styles = StyleSheet.create({
   memberSince: { fontSize: 11, color: "#F2650C", marginTop: 2, fontWeight: "600" },
   empty: { alignItems: "center", paddingTop: 40 },
   emptyText: { fontSize: 15, color: "#888" },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
+  rowActionBtn: { padding: 6, marginLeft: 4 },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#F2650C",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  filterBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  modalSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1B18", marginBottom: 16 },
+  modalLabel: { fontSize: 13, fontWeight: "700", color: "#888", marginBottom: 8, marginTop: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    backgroundColor: "#FAF5EA",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
+  chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  applyBtn: {
+    backgroundColor: "#1C1B18",
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  applyBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });

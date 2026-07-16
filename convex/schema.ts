@@ -44,6 +44,8 @@ export default defineSchema(
       fullAccessExpiryDate: v.optional(v.number()),
       deleteAccount: v.boolean(),
       deleteRequestDate: v.optional(v.number()),
+      isDisabled: v.optional(v.boolean()),
+      disabledAt: v.optional(v.number()),
       website: v.optional(v.string()),
       facebook: v.optional(v.string()),
       instagram: v.optional(v.string()),
@@ -141,8 +143,6 @@ export default defineSchema(
       minLevel: v.optional(v.string()),
       maxLevel: v.optional(v.string()),
       minRank: v.optional(v.string()),
-      // Set when an admin/moderator pins the discussion to the top of the feed.
-      pinnedAt: v.optional(v.number()),
     })
       .index("by_userId", ["userId"])
       .index("by_postDate", ["postDate"])
@@ -209,6 +209,22 @@ export default defineSchema(
     })
       .index("by_discussionId", ["discussionId"])
       .index("by_discussionId_userId_type", ["discussionId", "userId", "type"]),
+
+    // Generic per-user Like/Star engagements for entities that don't have their own
+    // dedicated meta table (discussion Likes still use discussionMetas above).
+    engagements: defineTable({
+      userId: v.id("profiles"),
+      targetType: v.union(
+        v.literal("discussion"),
+        v.literal("libraryItem"),
+        v.literal("profile")
+      ),
+      targetId: v.string(),
+      kind: v.union(v.literal("Like"), v.literal("Star")),
+    })
+      .index("by_target_kind", ["targetType", "targetId", "kind"])
+      .index("by_target_kind_user", ["targetType", "targetId", "kind", "userId"])
+      .index("by_user_kind", ["userId", "kind"]),
 
     discussionVisibilities: defineTable({
       discussionId: v.id("discussions"),

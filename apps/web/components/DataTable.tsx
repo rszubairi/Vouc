@@ -14,6 +14,9 @@ export type Column<T> = {
   filterValue?: (row: T) => string;
   /** Initial column width in px. Defaults to 160. */
   defaultWidth?: number;
+  /** Value used for sorting. Defaults to `row[key]`. Set `sortable: false` to disable. */
+  sortValue?: (row: T) => string | number;
+  sortable?: boolean;
 };
 
 type DataTableProps<T> = {
@@ -61,6 +64,7 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     const stored = loadLayout(storageKey);
@@ -128,6 +132,37 @@ export function DataTable<T>({
       return true;
     });
   }, [data, search, filters, columns]);
+
+  const sorted = useMemo(() => {
+    if (!filtered || !sort) return filtered;
+    const col = columns.find((c) => c.key === sort.key);
+    if (!col) return filtered;
+
+    const valueOf = (row: T) =>
+      col.sortValue ? col.sortValue(row) : (row as Record<string, unknown>)[col.key];
+
+    const copy = [...filtered];
+    copy.sort((a, b) => {
+      const av = valueOf(a);
+      const bv = valueOf(b);
+      let cmp: number;
+      if (typeof av === "number" && typeof bv === "number") {
+        cmp = av - bv;
+      } else {
+        cmp = String(av ?? "").localeCompare(String(bv ?? ""));
+      }
+      return sort.dir === "asc" ? cmp : -cmp;
+    });
+    return copy;
+  }, [filtered, sort, columns]);
+
+  function handleSortClick(key: string) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }
 
   const filterableColumns = columns.filter((c) => c.filterOptions);
 
@@ -225,7 +260,25 @@ export function DataTable<T>({
                     storageKey ? "cursor-move" : ""
                   } ${draggingKey === col.key ? "opacity-50" : ""}`}
                 >
-                  {col.label}
+                  {col.sortable === false ? (
+                    col.label
+                  ) : (
+                    <button
+                      type="button"
+                      draggable={false}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSortClick(col.key);
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 hover:text-[#F2650C]"
+                    >
+                      {col.label}
+                      <span className="text-gray-300 text-[10px]">
+                        {sort?.key === col.key ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </button>
+                  )}
                   {storageKey && (
                     <div
                       onMouseDown={(e) => {
@@ -247,7 +300,7 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered === undefined ? (
+            {sorted === undefined ? (
               <tr>
                 <td
                   colSpan={orderedColumns.length + (actions ? 1 : 0)}
@@ -256,7 +309,7 @@ export function DataTable<T>({
                   Loading...
                 </td>
               </tr>
-            ) : filtered.length === 0 ? (
+            ) : sorted.length === 0 ? (
               <tr>
                 <td
                   colSpan={orderedColumns.length + (actions ? 1 : 0)}
@@ -266,7 +319,7 @@ export function DataTable<T>({
                 </td>
               </tr>
             ) : (
-              filtered.map((row) => (
+              sorted.map((row) => (
                 <tr key={getRowId(row)} className="hover:bg-gray-50">
                   {orderedColumns.map((col) => (
                     <td
@@ -290,9 +343,9 @@ export function DataTable<T>({
         </table>
       </div>
 
-      {filtered !== undefined && (
+      {sorted !== undefined && (
         <p className="text-xs text-gray-400 mt-2">
-          {filtered.length} of {data?.length ?? 0} record
+          {sorted.length} of {data?.length ?? 0} record
           {(data?.length ?? 0) === 1 ? "" : "s"}
         </p>
       )}

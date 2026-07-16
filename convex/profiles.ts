@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./adminAuth";
+import { Id } from "./_generated/dataModel";
 
 // Get the currently authenticated user's profile.
 export const me = query({
@@ -339,6 +340,7 @@ export const adminHierarchyTree = query({
     const profiles = (await ctx.db.query("profiles").order("desc").take(1000)).filter(
       (p) => !p.deleteAccount
     );
+    const byId = new Map(profiles.map((p) => [p._id, p]));
     return profiles.map((p) => ({
       _id: p._id,
       nickName: p.nickName,
@@ -346,6 +348,7 @@ export const adminHierarchyTree = query({
       middleName: p.middleName,
       lastName: p.lastName,
       sponsorId: p.sponsorId,
+      sponsorName: p.sponsorId ? byId.get(p.sponsorId)?.nickName ?? "—" : "—",
       sponsorApproved: p.sponsorApproved,
     }));
   },
@@ -458,6 +461,45 @@ export const adminDeleteProfile = mutation({
       deleteAccount: true,
       deleteRequestDate: Date.now(),
     });
+  },
+});
+
+// Admin soft-deletes multiple profiles at once.
+export const adminBulkDeleteProfiles = mutation({
+  args: { profileIds: v.array(v.id("profiles")) },
+  handler: async (ctx, { profileIds }) => {
+    await requireAdmin(ctx);
+    const now = Date.now();
+    for (const profileId of profileIds) {
+      await ctx.db.patch(profileId, {
+        deleteAccount: true,
+        deleteRequestDate: now,
+      });
+    }
+  },
+});
+
+// Admin re-parents a profile to a new sponsor (used by hierarchy drag-and-drop).
+export const adminSetSponsor = mutation({
+  args: { profileId: v.id("profiles"), sponsorId: v.optional(v.id("profiles")) },
+  handler: async (ctx, { profileId, sponsorId }) => {
+    await requireAdmin(ctx);
+    if (sponsorId === profileId) {
+      throw new Error("A profile cannot sponsor itself.");
+    }
+    if (sponsorId) {
+      // Prevent creating a cycle: the new sponsor cannot be a descendant of profileId.
+      let current: typeof sponsorId | undefined = sponsorId;
+      while (current) {
+        if (current === profileId) {
+          throw new Error("Cannot move a profile under its own downline.");
+        }
+        const currentProfile: { sponsorId?: Id<"profiles"> } | null = await ctx.db.get(current);
+        current = currentProfile?.sponsorId;
+      }
+    }
+    await ctx.db.patch(profileId, { sponsorId });
+    await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId });
   },
 });
 

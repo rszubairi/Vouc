@@ -1,28 +1,7 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-
-// Recursively collect all downline profiles up to maxLevel depth.
-async function collectDownline(
-  ctx: any,
-  profileId: Id<"profiles">,
-  level: number,
-  maxLevel: number,
-  results: Array<{ userId: Id<"profiles">; level: number }>
-) {
-  const children = await ctx.db
-    .query("profiles")
-    .withIndex("by_sponsorId", (q: any) => q.eq("sponsorId", profileId))
-    .filter((q: any) => q.eq(q.field("sponsorApproved"), true))
-    .collect();
-
-  for (const child of children) {
-    results.push({ userId: child._id, level });
-    if (level < maxLevel) {
-      await collectDownline(ctx, child._id, level + 1, maxLevel, results);
-    }
-  }
-}
+import { internal } from "./_generated/api";
 
 // Recursively collect all upline profiles up to maxLevel depth.
 async function collectUpline(
@@ -41,8 +20,13 @@ async function collectUpline(
   }
 }
 
+const MAX_HIERARCHY_LEVEL = 100;
+
 // Rebuild and persist the full hierarchy for a given profileId.
 // Should be called when sponsorApproved flips to true, or sponsor changes.
+// Upline (bounded by chain depth) is written directly; downline can be
+// arbitrarily large, so it's written level-by-level across scheduled
+// mutations to stay under Convex's per-execution read/write limits.
 export const rebuildHierarchy = internalMutation({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, { profileId }) => {
@@ -56,10 +40,7 @@ export const rebuildHierarchy = internalMutation({
     }
 
     const upline: Array<{ userId: Id<"profiles">; level: number }> = [];
-    await collectUpline(ctx, profileId, 1, 100, upline);
-
-    const downline: Array<{ userId: Id<"profiles">; level: number }> = [];
-    await collectDownline(ctx, profileId, 1, 100, downline);
+    await collectUpline(ctx, profileId, 1, MAX_HIERARCHY_LEVEL, upline);
 
     for (const { userId, level } of upline) {
       await ctx.db.insert("profileHierarchies", {
@@ -69,12 +50,51 @@ export const rebuildHierarchy = internalMutation({
         level,
       });
     }
-    for (const { userId, level } of downline) {
-      await ctx.db.insert("profileHierarchies", {
+
+    await ctx.scheduler.runAfter(0, internal.hierarchy.rebuildDownlineLevel, {
+      profileId,
+      frontier: [profileId],
+      level: 1,
+    });
+  },
+});
+
+// Writes one level of profileId's downline, then schedules the next level.
+// Splitting the (potentially huge) downline across scheduled mutations keeps
+// each execution's document reads/writes well under Convex's per-call limits.
+export const rebuildDownlineLevel = internalMutation({
+  args: {
+    profileId: v.id("profiles"),
+    frontier: v.array(v.id("profiles")),
+    level: v.number(),
+  },
+  handler: async (ctx, { profileId, frontier, level }) => {
+    if (level > MAX_HIERARCHY_LEVEL || frontier.length === 0) return;
+
+    const nextFrontier: Id<"profiles">[] = [];
+    for (const parentId of frontier) {
+      const children = await ctx.db
+        .query("profiles")
+        .withIndex("by_sponsorId", (q) => q.eq("sponsorId", parentId))
+        .filter((q) => q.eq(q.field("sponsorApproved"), true))
+        .collect();
+
+      for (const child of children) {
+        await ctx.db.insert("profileHierarchies", {
+          profileId,
+          userId: child._id,
+          isUpline: false,
+          level,
+        });
+        nextFrontier.push(child._id);
+      }
+    }
+
+    if (nextFrontier.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.hierarchy.rebuildDownlineLevel, {
         profileId,
-        userId,
-        isUpline: false,
-        level,
+        frontier: nextFrontier,
+        level: level + 1,
       });
     }
   },

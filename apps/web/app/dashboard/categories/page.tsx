@@ -14,10 +14,11 @@ type Category = {
   displayOrder: number;
   divisionId?: Id<"divisions">;
   divisionName: string;
-  scope?: "library" | "discussion";
+  scope?: "library" | "discussion" | "knowledgeHub";
 };
 
-const scopeLabel = (scope: Category["scope"]) => (scope === "discussion" ? "Discussion" : "Library");
+const scopeLabel = (scope: Category["scope"]) =>
+  scope === "discussion" ? "Discussion" : scope === "knowledgeHub" ? "Knowledge Hub" : "Library";
 
 export default function CategoriesPage() {
   const categories = useQuery(api.categories.list, {});
@@ -39,6 +40,7 @@ export default function CategoriesPage() {
       filterOptions: [
         { label: "Library", value: "Library" },
         { label: "Discussion", value: "Discussion" },
+        { label: "Knowledge Hub", value: "Knowledge Hub" },
       ],
     },
     {
@@ -130,7 +132,9 @@ function CategoryForm({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [displayOrder, setDisplayOrder] = useState(initial?.displayOrder ?? 0);
   const [divisionId, setDivisionId] = useState(initial?.divisionId ?? "");
-  const [scope, setScope] = useState<"library" | "discussion">(initial?.scope ?? "library");
+  const [scope, setScope] = useState<"library" | "discussion">(
+    initial?.scope === "discussion" ? "discussion" : "library"
+  );
   const [submitting, setSubmitting] = useState(false);
 
   return (

@@ -19,7 +19,11 @@ async function getCallerProfile(ctx: any) {
 export const listDivisions = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("divisions").collect();
+    // Rows with a `sqlId` predate this feature (migrated from the legacy
+    // Nu Skin product catalog) and are excluded from the Directory picker —
+    // their posts stay in place, just not reachable via category browsing.
+    const divisions = await ctx.db.query("divisions").collect();
+    return divisions.filter((d) => d.sqlId === undefined);
   },
 });
 
@@ -27,12 +31,14 @@ export const listCategories = query({
   args: { divisionId: v.optional(v.id("divisions")) },
   handler: async (ctx, { divisionId }) => {
     if (divisionId) {
-      return await ctx.db
+      const categories = await ctx.db
         .query("categories")
         .withIndex("by_divisionId", (q) => q.eq("divisionId", divisionId))
         .collect();
+      return categories.filter((c) => c.sqlId === undefined);
     }
-    return await ctx.db.query("categories").collect();
+    const categories = await ctx.db.query("categories").collect();
+    return categories.filter((c) => c.sqlId === undefined);
   },
 });
 

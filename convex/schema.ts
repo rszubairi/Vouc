@@ -399,12 +399,14 @@ export default defineSchema(
     // ─── Products / Divisions ─────────────────────────────────────────────────
 
     divisions: defineTable({
+      sqlId: v.optional(v.number()), // original SQL Server PK — legacy Nu Skin catalog rows only
       name: v.string(),
       description: v.optional(v.string()),
       displayOrder: v.number(),
     }),
 
     categories: defineTable({
+      sqlId: v.optional(v.number()), // original SQL Server PK — legacy Nu Skin catalog rows only
       divisionId: v.optional(v.id("divisions")),
       name: v.string(),
       description: v.optional(v.string()),

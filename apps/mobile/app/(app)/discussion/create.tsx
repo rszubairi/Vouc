@@ -10,6 +10,8 @@ import {
   Alert,
   Modal,
   FlatList,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
@@ -21,12 +23,17 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
+import { IANA_TIMEZONES } from "../../../constants/timezones";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+// Hermes doesn't reliably support Intl.supportedValuesOf, so fall back to
+// the bundled IANA list — merging in the device zone in case it's not
+// already present in the curated list.
 const TIMEZONES: string[] =
-  typeof (Intl as any).supportedValuesOf === "function"
+  typeof (Intl as any).supportedValuesOf === "function" &&
+  (Intl as any).supportedValuesOf("timeZone").length > 1
     ? (Intl as any).supportedValuesOf("timeZone")
-    : [DEVICE_TIMEZONE];
+    : Array.from(new Set([DEVICE_TIMEZONE, ...IANA_TIMEZONES]));
 
 function parseScheduledDateTime(dateStr: string, timeStr: string): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(timeStr)) return null;
@@ -172,6 +179,11 @@ export default function CreateDiscussionScreen() {
   }
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.label}>Subject</Text>
       <TextInput
@@ -374,6 +386,7 @@ export default function CreateDiscussionScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

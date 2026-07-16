@@ -144,9 +144,6 @@ export default function LibraryScreen() {
               style={styles.card}
               onPress={() => router.push(`/(app)/library/${item._id}`)}
             >
-              <View style={styles.typeTag}>
-                <Text style={styles.typeText}>{item.type}</Text>
-              </View>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.desc} numberOfLines={2}>
                 {item.description}

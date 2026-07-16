@@ -50,7 +50,6 @@ export default function LibraryItemDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.type}>{item.type}</Text>
       <Text style={styles.title}>{item.title}</Text>
       <View style={styles.creatorRow}>
         {item.creatorProfileImageUrl ? (

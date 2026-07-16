@@ -163,11 +163,16 @@ export const getItem = query({
   },
 });
 
+const attachmentInput = v.object({
+  storageId: v.id("_storage"),
+  kind: v.union(v.literal("image"), v.literal("file")),
+  fileName: v.optional(v.string()),
+});
+
 export const createLibraryItem = mutation({
   args: {
     title: v.string(),
     description: v.string(),
-    type: v.string(),
     categoryId: v.optional(v.id("categories")),
     division: v.optional(v.string()),
     tag: v.optional(v.string()),
@@ -183,8 +188,7 @@ export const createLibraryItem = mutation({
     minLevel: v.optional(v.string()),
     maxLevel: v.optional(v.string()),
     minRank: v.optional(v.string()),
-    imageUrls: v.optional(v.array(v.string())),
-    documentUrls: v.optional(v.array(v.object({ name: v.string(), url: v.string() }))),
+    attachments: v.optional(v.array(attachmentInput)),
   },
   handler: async (ctx, args) => {
     const profile = await getCallerProfile(ctx);
@@ -193,7 +197,6 @@ export const createLibraryItem = mutation({
       userId: profile._id,
       title: args.title,
       description: args.description,
-      type: args.type,
       categoryId: args.categoryId,
       division: args.division,
       tag: args.tag,
@@ -214,24 +217,21 @@ export const createLibraryItem = mutation({
       minRank: args.minRank,
     });
 
-    if (args.imageUrls) {
-      for (let i = 0; i < args.imageUrls.length; i++) {
-        const imageId = await ctx.db.insert("images", {
+    let imageOrder = 0;
+    for (const a of args.attachments ?? []) {
+      const url = await ctx.storage.getUrl(a.storageId);
+      if (!url) continue;
+      if (a.kind === "image") {
+        const imageId = await ctx.db.insert("images", { userId: profile._id, url, storageId: a.storageId });
+        await ctx.db.insert("libraryImages", { libraryItemId: itemId, imageId, order: imageOrder++ });
+      } else {
+        const documentId = await ctx.db.insert("documents", {
           userId: profile._id,
-          url: args.imageUrls[i],
+          name: a.fileName ?? "File",
+          url,
+          storageId: a.storageId,
         });
-        await ctx.db.insert("libraryImages", { libraryItemId: itemId, imageId, order: i });
-      }
-    }
-
-    if (args.documentUrls) {
-      for (const doc of args.documentUrls) {
-        const docId = await ctx.db.insert("documents", {
-          userId: profile._id,
-          name: doc.name,
-          url: doc.url,
-        });
-        await ctx.db.insert("libraryDocuments", { libraryItemId: itemId, documentId: docId });
+        await ctx.db.insert("libraryDocuments", { libraryItemId: itemId, documentId });
       }
     }
 

@@ -325,7 +325,7 @@ export default defineSchema(
       userId: v.id("profiles"),
       title: v.string(),
       description: v.string(),
-      type: v.string(), // "Product" | "Document" | "Article" | etc.
+      type: v.optional(v.string()), // deprecated — no longer set by the create form
       categoryId: v.optional(v.id("categories")),
       division: v.optional(v.string()),
       tag: v.optional(v.string()),

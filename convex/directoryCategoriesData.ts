@@ -1,0 +1,117 @@
+// Launch set of Directory divisions and categories, sourced from
+// Vouch-Categories.pdf. Used by divisions:seedDirectory.
+export const DIRECTORY_DIVISIONS: { name: string; categories: string[] }[] = [
+  {
+    name: "Professional Services",
+    categories: [
+      "Accounting & Bookkeeping",
+      "Banking & Financial Planning",
+      "Business Brokerage",
+      "Business Coaching & Consulting",
+      "Human Resources & Recruitment",
+      "Import & Export",
+      "Insurance (Property, Casualty, Life & Commercial)",
+      "Legal Services, Lawyers & Notaries",
+      "Mortgage Brokerage & Lending",
+      "Real Estate Sales & Brokerage",
+      "Property Management",
+      "Tax Services",
+      "Translation & Interpretation",
+      "Virtual Assistant Services",
+    ],
+  },
+  {
+    name: "Marketing, Media & Creative",
+    categories: [
+      "Advertising, Marketing & Public Relations",
+      "Digital Media, Photography & Video Production",
+      "Graphic Design & Branding",
+      "Social Media Management",
+      "Website Design & Development",
+      "Arts, Culture & Entertainment",
+      "Printing & Signage",
+    ],
+  },
+  {
+    name: "Technology & Engineering",
+    categories: [
+      "Engineering & Technical Consulting",
+      "IT Support & Managed Services",
+      "Software Development",
+      "AI & Automation Services",
+      "Cybersecurity",
+    ],
+  },
+  {
+    name: "Health, Medical & Wellness",
+    categories: [
+      "Beauty, Hair & Nail Salons",
+      "Dental Care & Orthodontics",
+      "Fitness, Gyms & Personal Training",
+      "Health & Wellness (Chiropractic, Physiotherapy, Massage)",
+      "Medical Clinics & Physicians",
+      "Mental Health & Counselling",
+      "Nutrition & Dietitian",
+      "Pharmacy",
+    ],
+  },
+  {
+    name: "Education & Training",
+    categories: [
+      "Childcare, Daycares & Afterschool Programs",
+      "Education, Tutoring & Test Preparation",
+      "Professional Training & Coaching",
+      "Language Schools",
+      "Online Course Providers",
+    ],
+  },
+  {
+    name: "Construction, Home & Property",
+    categories: [
+      "Architecture & Interior Design",
+      "Cleaning Services",
+      "Electrical Services",
+      "HVAC (Heating, Ventilation & Air Conditioning)",
+      "Home Repair, Handyman & Renovations",
+      "Landscaping, Lawn Care & Tree Services",
+      "Painting & Drywall",
+      "Plumbing Services",
+      "Roofing",
+      "Windows & Doors",
+    ],
+  },
+  {
+    name: "Retail, Food & Hospitality",
+    categories: [
+      "Automotive (Sales, Repair & Detailing)",
+      "Clothing, Fashion & Boutiques",
+      "Co-working & Office Spaces",
+      "Florists & Gift Shops",
+      "Food & Beverage (Restaurants, Bakeries, Cafés & Specialty Grocery)",
+      "Hospitality, Hotels & Travel Agencies",
+      "Event Planning & Catering",
+      "Furniture & Home Décor",
+      "Jewellery",
+    ],
+  },
+  {
+    name: "Pets & Animals",
+    categories: [
+      "Pet Care",
+      "Pet Grooming",
+      "Veterinary Services",
+      "Pet Training",
+      "Pet Supplies",
+    ],
+  },
+  {
+    name: "Community & Organizations",
+    categories: [
+      "Associations & Chambers of Commerce",
+      "Government & Public Services",
+      "Non-Profit & Community Organizations",
+      "Religious Organizations",
+      "Clubs & Professional Societies",
+    ],
+  },
+];

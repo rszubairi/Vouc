@@ -14,37 +14,100 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { useRouter } from "expo-router";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { Ionicons } from "@expo/vector-icons";
+
+type PendingAttachment = {
+  storageId: Id<"_storage">;
+  kind: "image" | "file";
+  fileName?: string;
+};
 
 export default function CreateLibraryItemScreen() {
   const router = useRouter();
   const categories = useQuery(api.categories.list, { scope: "knowledgeHub" });
   const createLibraryItem = useMutation(api.library.createLibraryItem);
+  const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const [submitting, setSubmitting] = useState(false);
 
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState("");
-  const [description, setDescription] = useState("");
+  const [subject, setSubject] = useState("");
+  const [details, setDetails] = useState("");
   const [categoryId, setCategoryId] = useState<Id<"categories"> | undefined>(undefined);
   const [nonChinaVideoLink, setNonChinaVideoLink] = useState("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [allowRetweet, setAllowRetweet] = useState(true);
   const [mustRead, setMustRead] = useState(false);
   const [toUpline, setToUpline] = useState(true);
   const [toDownline, setToDownline] = useState(true);
 
+  async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
+    const uploadUrl = await generateUploadUrl({});
+    const uploadResult = await FileSystem.uploadAsync(uploadUrl, uri, {
+      httpMethod: "POST",
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { "Content-Type": mimeType ?? "application/octet-stream" },
+    });
+    const { storageId } = JSON.parse(uploadResult.body);
+    setAttachments((prev) => [...prev, { storageId, kind, fileName }]);
+  }
+
+  async function handlePickImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo library access to attach a photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    try {
+      setUploading(true);
+      await uploadAsset(asset.uri, asset.mimeType, asset.fileName ?? undefined, "image");
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handlePickFile() {
+    const result = await DocumentPicker.getDocumentAsync({ multiple: false });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    try {
+      setUploading(true);
+      await uploadAsset(asset.uri, asset.mimeType, asset.name, "file");
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to upload file.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeAttachment(index: number) {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleCreate() {
-    if (!title.trim() || !type.trim() || !description.trim()) {
-      Alert.alert("Missing info", "Please fill in title, type, and description.");
+    if (!subject.trim() || !details.trim()) {
+      Alert.alert("Missing info", "Please fill in subject and details.");
       return;
     }
 
     try {
       setSubmitting(true);
       const itemId = await createLibraryItem({
-        title: title.trim(),
-        type: type.trim(),
-        description: description.trim(),
+        title: subject.trim(),
+        description: details.trim(),
         categoryId,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
+        attachments: attachments.length ? attachments : undefined,
         allowRetweet,
         mustRead,
         toUpline,
@@ -62,29 +125,20 @@ export default function CreateLibraryItemScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>Title</Text>
+      <Text style={styles.label}>Subject</Text>
       <TextInput
         style={styles.input}
-        value={title}
-        onChangeText={setTitle}
+        value={subject}
+        onChangeText={setSubject}
         placeholder="e.g. Getting Started Guide"
         placeholderTextColor="#aaa"
       />
 
-      <Text style={styles.label}>Type</Text>
-      <TextInput
-        style={styles.input}
-        value={type}
-        onChangeText={setType}
-        placeholder="e.g. Guide, Video, Document"
-        placeholderTextColor="#aaa"
-      />
-
-      <Text style={styles.label}>Description</Text>
+      <Text style={styles.label}>Details *</Text>
       <TextInput
         style={[styles.input, styles.multiline]}
-        value={description}
-        onChangeText={setDescription}
+        value={details}
+        onChangeText={setDetails}
         placeholder="What is this resource about?"
         placeholderTextColor="#aaa"
         multiline
@@ -115,6 +169,30 @@ export default function CreateLibraryItemScreen() {
         autoCapitalize="none"
       />
 
+      <Text style={styles.label}>Attachments (optional)</Text>
+      <View style={styles.attachRow}>
+        <TouchableOpacity style={styles.attachBtn} onPress={handlePickImage} disabled={uploading}>
+          <Ionicons name="image-outline" size={18} color="#1C1B18" />
+          <Text style={styles.attachBtnText}>Photo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.attachBtn} onPress={handlePickFile} disabled={uploading}>
+          <Ionicons name="document-attach-outline" size={18} color="#1C1B18" />
+          <Text style={styles.attachBtnText}>File</Text>
+        </TouchableOpacity>
+        {uploading && <ActivityIndicator size="small" color="#1C1B18" />}
+      </View>
+      {attachments.length > 0 && (
+        <View style={styles.tagList}>
+          {attachments.map((a, i) => (
+            <TouchableOpacity key={i} style={styles.tagChip} onPress={() => removeAttachment(i)}>
+              <Ionicons name={a.kind === "image" ? "image" : "document"} size={12} color="#1C1B18" />
+              <Text style={styles.tagChipText} numberOfLines={1}>{a.fileName ?? a.kind}</Text>
+              <Ionicons name="close" size={12} color="#1C1B18" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Allow Retweet</Text>
         <Switch value={allowRetweet} onValueChange={setAllowRetweet} trackColor={{ true: "#1C1B18" }} />
@@ -135,7 +213,7 @@ export default function CreateLibraryItemScreen() {
         <Switch value={toDownline} onValueChange={setToDownline} trackColor={{ true: "#1C1B18" }} />
       </View>
 
-      <TouchableOpacity style={styles.submitBtn} onPress={handleCreate} disabled={submitting}>
+      <TouchableOpacity style={styles.submitBtn} onPress={handleCreate} disabled={submitting || uploading}>
         {submitting ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -174,6 +252,31 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
   chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
   chipTextActive: { color: "#fff" },
+  attachRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+  attachBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  attachBtnText: { fontSize: 13, fontWeight: "600", color: "#1C1B18" },
+  tagList: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  tagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#F5EFE0",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    maxWidth: 200,
+  },
+  tagChipText: { fontSize: 12, color: "#1C1B18", fontWeight: "600" },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",

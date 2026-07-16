@@ -48,6 +48,40 @@ export const seedKnowledgeHubCategories = internalMutation({
   },
 });
 
+const DISCUSSION_CATEGORIES = [
+  "Business Opportunities",
+  "Jobs & Career",
+  "Events",
+  "Buy • Sell • Give Away",
+  "Recommendations & Referrals",
+  "Knowledge & Advice",
+  "Promotions & Member Offers",
+  "Community Lounge",
+];
+
+// One-off/idempotent seed for the launch set of Discussions categories.
+// Run via `npx convex run categories:seedDiscussionCategories`.
+export const seedDiscussionCategories = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("categories")
+      .withIndex("by_scope", (q) => q.eq("scope", "discussion"))
+      .collect();
+    const existingNames = new Set(existing.map((c) => c.name));
+
+    for (let i = 0; i < DISCUSSION_CATEGORIES.length; i++) {
+      const name = DISCUSSION_CATEGORIES[i];
+      if (existingNames.has(name)) continue;
+      await ctx.db.insert("categories", {
+        name,
+        displayOrder: i,
+        scope: "discussion",
+      });
+    }
+  },
+});
+
 export const list = query({
   args: {
     scope: v.optional(

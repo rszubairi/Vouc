@@ -13,7 +13,7 @@ import {
 import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import { FlashList } from "@shopify/flash-list";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useQuery } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../../../../convex/_generated/api";
@@ -21,6 +21,18 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import { useMemo, useState } from "react";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
+import { WEB_APP_URL } from "../../../constants/links";
+
+const DISCUSSION_CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  "Business Opportunities": "briefcase-outline",
+  "Jobs & Career": "person-outline",
+  "Events": "calendar-outline",
+  "Buy • Sell • Give Away": "pricetag-outline",
+  "Recommendations & Referrals": "thumbs-up-outline",
+  "Knowledge & Advice": "bulb-outline",
+  "Promotions & Member Offers": "gift-outline",
+  "Community Lounge": "people-outline",
+};
 
 type FeedDiscussion = {
   _id: string;
@@ -37,6 +49,9 @@ type FeedDiscussion = {
   replyCount: number;
   mustRead: boolean;
   isRead: boolean;
+  isPinned: boolean;
+  isLiked: boolean;
+  isEndorsed: boolean;
   postDate: number;
   nonChinaVideoLink?: string;
   chinaVideoLink?: string;
@@ -48,13 +63,15 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
   const isClosed = discussion.status === "Closed";
 
   async function handleShare() {
-    const link = Linking.createURL(`discussion/${discussion._id}`);
+    const appLink = Linking.createURL(`discussion/${discussion._id}`);
+    const webLink = `${WEB_APP_URL}/app?discussion=${discussion._id}`;
     const message = discussion.topic ? `${discussion.topic}\n\n${discussion.details}` : discussion.details;
+    const fullMessage = `${message}\n\n${appLink}\n\nDon't have Vouch yet? ${webLink}`;
     try {
       await Share.share(
         Platform.OS === "ios"
-          ? { message, url: link, title: discussion.topic || "Vouch Discussion" }
-          : { message: `${message}\n\n${link}`, title: discussion.topic || "Vouch Discussion" }
+          ? { message: fullMessage, title: discussion.topic || "Vouch Discussion" }
+          : { message: fullMessage, title: discussion.topic || "Vouch Discussion" }
       );
     } catch {
       // user dismissed the native share sheet — nothing to do
@@ -68,6 +85,12 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
       activeOpacity={0.85}
     >
       <View style={styles.badgeRow}>
+        {discussion.isPinned && (
+          <View style={styles.pinnedBadge}>
+            <Ionicons name="pin" size={11} color="#F2650C" />
+            <Text style={styles.pinnedText}>Pinned</Text>
+          </View>
+        )}
         {discussion.mustRead && !discussion.isRead && (
           <View style={styles.mustReadBadge}>
             <Text style={styles.mustReadText}>Must Read</Text>
@@ -117,11 +140,19 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
       {/* Engagement bar */}
       <View style={styles.engagementRow}>
         <View style={styles.engagementItem}>
-          <Ionicons name="thumbs-up-outline" size={14} color="#666" />
+          <Ionicons
+            name={discussion.isLiked ? "thumbs-up" : "thumbs-up-outline"}
+            size={14}
+            color={discussion.isLiked ? "#F2650C" : "#666"}
+          />
           <Text style={styles.engagementText}>{discussion.likeCount}</Text>
         </View>
         <View style={styles.engagementItem}>
-          <Ionicons name="star-outline" size={14} color="#666" />
+          <Ionicons
+            name={discussion.isEndorsed ? "star" : "star-outline"}
+            size={14}
+            color={discussion.isEndorsed ? "#F2650C" : "#666"}
+          />
           <Text style={styles.engagementText}>{discussion.endorseCount}</Text>
         </View>
         <View style={styles.engagementItem}>
@@ -151,33 +182,94 @@ type SortMode = "recent" | "active";
 
 export default function DiscussionsFeedScreen() {
   const router = useRouter();
+  const { categoryId: paramCategoryId } = useLocalSearchParams<{ categoryId?: string }>();
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
-  const [categoryId, setCategoryId] = useState<Id<"categories"> | undefined>(undefined);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<Id<"categories"> | null>(
+    (paramCategoryId as Id<"categories"> | undefined) ?? null
+  );
   const [status, setStatus] = useState<StatusFilter>("All");
   const [sort, setSort] = useState<SortMode>("recent");
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
   useHeaderSearchButton(searchVisible, toggleSearch);
 
   const categories = useQuery(api.categories.list, { scope: "discussion" });
-  const discussions = useQuery(api.discussions.list, {
-    limit: 50,
-    keyword: search.trim() || undefined,
-    categoryId,
-    status: status === "All" ? undefined : status,
-    sort,
-  });
+  const discussions = useQuery(
+    api.discussions.list,
+    selectedCategoryId
+      ? {
+          limit: 50,
+          keyword: search.trim() || undefined,
+          categoryId: selectedCategoryId,
+          status: status === "All" ? undefined : status,
+          sort,
+        }
+      : "skip"
+  );
 
-  const activeFilterCount = (categoryId ? 1 : 0) + (status !== "All" ? 1 : 0) + (sort !== "recent" ? 1 : 0);
+  const sortedCategories = useMemo(() => {
+    if (!categories) return [];
+    return [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [categories]);
+
+  const selectedCategory = useMemo(
+    () => sortedCategories.find((c) => c._id === selectedCategoryId) ?? null,
+    [sortedCategories, selectedCategoryId]
+  );
+
+  const activeFilterCount = (status !== "All" ? 1 : 0) + (sort !== "recent" ? 1 : 0);
 
   function handleRefresh() {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 600);
   }
 
+  if (!selectedCategoryId) {
+    return (
+      <View style={styles.container}>
+        {categories === undefined ? (
+          <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />
+        ) : (
+          <FlashList
+            data={sortedCategories}
+            keyExtractor={(c) => c._id}
+            estimatedItemSize={64}
+            contentContainerStyle={styles.list}
+            renderItem={({ item: category }) => (
+              <TouchableOpacity
+                style={styles.categoryCard}
+                onPress={() => setSelectedCategoryId(category._id)}
+              >
+                <View style={styles.categoryIconWrap}>
+                  <Ionicons
+                    name={DISCUSSION_CATEGORY_ICONS[category.name] ?? "chatbubbles-outline"}
+                    size={22}
+                    color="#F2650C"
+                  />
+                </View>
+                <Text style={styles.categoryName}>{category.name}</Text>
+                <Ionicons name="chevron-forward" size={18} color="#999" />
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>No categories yet.</Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backRow} onPress={() => setSelectedCategoryId(null)}>
+        <Ionicons name="chevron-back" size={18} color="#F2650C" />
+        <Text style={styles.backText}>{selectedCategory?.name ?? "Categories"}</Text>
+      </TouchableOpacity>
+
       {searchVisible && (
         <View style={styles.searchBar}>
           <TextInput
@@ -235,25 +327,6 @@ export default function DiscussionsFeedScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Filter Discussions</Text>
-
-            <Text style={styles.modalLabel}>Category</Text>
-            <View style={styles.chipRow}>
-              <TouchableOpacity
-                style={[styles.chip, !categoryId && styles.chipActive]}
-                onPress={() => setCategoryId(undefined)}
-              >
-                <Text style={[styles.chipText, !categoryId && styles.chipTextActive]}>All</Text>
-              </TouchableOpacity>
-              {(categories ?? []).map((cat) => (
-                <TouchableOpacity
-                  key={cat._id}
-                  style={[styles.chip, categoryId === cat._id && styles.chipActive]}
-                  onPress={() => setCategoryId(cat._id)}
-                >
-                  <Text style={[styles.chipText, categoryId === cat._id && styles.chipTextActive]}>{cat.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
             <Text style={styles.modalLabel}>Status</Text>
             <View style={styles.chipRow}>
@@ -339,6 +412,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   filterBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 2,
+  },
+  backText: { color: "#F2650C", fontSize: 15, fontWeight: "700" },
+  categoryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F5EFE0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryName: { flex: 1, fontSize: 15, fontWeight: "700", color: "#1C1B18" },
   card: {
     backgroundColor: "#fff",
     borderRadius: 14,
@@ -351,6 +456,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   badgeRow: { flexDirection: "row", gap: 6, marginBottom: 8, flexWrap: "wrap" },
+  pinnedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#F5EFE0",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  pinnedText: { color: "#F2650C", fontSize: 11, fontWeight: "700" },
   mustReadBadge: {
     backgroundColor: "#e74c3c",
     borderRadius: 6,

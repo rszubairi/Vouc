@@ -141,6 +141,8 @@ export default defineSchema(
       minLevel: v.optional(v.string()),
       maxLevel: v.optional(v.string()),
       minRank: v.optional(v.string()),
+      // Set when an admin/moderator pins the discussion to the top of the feed.
+      pinnedAt: v.optional(v.number()),
     })
       .index("by_userId", ["userId"])
       .index("by_postDate", ["postDate"])
@@ -150,6 +152,14 @@ export default defineSchema(
         searchField: "details",
         filterFields: ["isDeleted", "categoryId", "status"],
       }),
+
+    discussionFollowers: defineTable({
+      followerId: v.id("profiles"),
+      discussionId: v.id("discussions"),
+    })
+      .index("by_followerId", ["followerId"])
+      .index("by_discussionId", ["discussionId"])
+      .index("by_discussionId_followerId", ["discussionId", "followerId"]),
 
     discussionTags: defineTable({
       discussionId: v.id("discussions"),

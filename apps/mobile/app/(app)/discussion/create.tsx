@@ -8,6 +8,8 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
+  Modal,
+  FlatList,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
@@ -18,6 +20,19 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
+import { Calendar } from "react-native-calendars";
+
+const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const TIMEZONES: string[] =
+  typeof (Intl as any).supportedValuesOf === "function"
+    ? (Intl as any).supportedValuesOf("timeZone")
+    : [DEVICE_TIMEZONE];
+
+function parseScheduledDateTime(dateStr: string, timeStr: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(timeStr)) return null;
+  const ms = new Date(`${dateStr}T${timeStr}:00`).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -39,11 +54,17 @@ export default function CreateDiscussionScreen() {
   const [nonChinaVideoLink, setNonChinaVideoLink] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [mustRead, setMustRead] = useState(false);
-  const [allowRetweet, setAllowRetweet] = useState(true);
   const [toDownline, setToDownline] = useState(true);
   const [toUpline, setToUpline] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState(""); // "YYYY-MM-DD"
+  const [scheduleTime, setScheduleTime] = useState(""); // "HH:MM"
+  const [timezone, setTimezone] = useState(DEVICE_TIMEZONE);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [zonePickerVisible, setZonePickerVisible] = useState(false);
+  const [zoneSearch, setZoneSearch] = useState("");
 
   function addTag() {
     const t = tagInput.trim().toLowerCase();
@@ -111,6 +132,19 @@ export default function CreateDiscussionScreen() {
       Alert.alert("Required", "Please enter discussion details.");
       return;
     }
+    let postDate: number | undefined;
+    if (isScheduled) {
+      const ms = parseScheduledDateTime(scheduleDate, scheduleTime);
+      if (ms === null) {
+        Alert.alert("Invalid schedule", "Please pick a valid date and time.");
+        return;
+      }
+      if (ms <= Date.now()) {
+        Alert.alert("Invalid schedule", "Scheduled time must be in the future.");
+        return;
+      }
+      postDate = ms;
+    }
     setSubmitting(true);
     try {
       const discussionId = await createDiscussion({
@@ -120,8 +154,10 @@ export default function CreateDiscussionScreen() {
         tags: tags.length ? tags : undefined,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
-        mustRead,
-        allowRetweet,
+        postDate,
+        selectedZone: isScheduled ? timezone : undefined,
+        mustRead: false,
+        allowRetweet: true,
         toUpline,
         toDownline,
         toSelectGroup: false,
@@ -232,16 +268,6 @@ export default function CreateDiscussionScreen() {
       )}
 
       <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Must Read</Text>
-        <Switch value={mustRead} onValueChange={setMustRead} trackColor={{ true: "#1C1B18" }} />
-      </View>
-
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Allow Retweet</Text>
-        <Switch value={allowRetweet} onValueChange={setAllowRetweet} trackColor={{ true: "#1C1B18" }} />
-      </View>
-
-      <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Share to Downline</Text>
         <Switch value={toDownline} onValueChange={setToDownline} trackColor={{ true: "#1C1B18" }} />
       </View>
@@ -251,13 +277,102 @@ export default function CreateDiscussionScreen() {
         <Switch value={toUpline} onValueChange={setToUpline} trackColor={{ true: "#1C1B18" }} />
       </View>
 
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleLabel}>Schedule Post</Text>
+        <Switch value={isScheduled} onValueChange={setIsScheduled} trackColor={{ true: "#1C1B18" }} />
+      </View>
+
+      {isScheduled && (
+        <View style={styles.scheduleBox}>
+          <Text style={styles.label}>Date</Text>
+          <TouchableOpacity style={styles.input} onPress={() => setDatePickerVisible(true)}>
+            <Text style={scheduleDate ? styles.scheduleValue : styles.schedulePlaceholder}>
+              {scheduleDate || "Select a date"}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={styles.label}>Time</Text>
+          <TextInput
+            style={styles.input}
+            value={scheduleTime}
+            onChangeText={setScheduleTime}
+            placeholder="HH:MM (24-hour)"
+            placeholderTextColor="#aaa"
+            keyboardType="numbers-and-punctuation"
+          />
+
+          <Text style={styles.label}>Timezone</Text>
+          <TouchableOpacity style={styles.input} onPress={() => setZonePickerVisible(true)}>
+            <Text style={styles.scheduleValue}>{timezone}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting || uploading}>
         {submitting ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.submitText}>Start Discussion</Text>
+          <Text style={styles.submitText}>{isScheduled ? "Schedule Post" : "Start Discussion"}</Text>
         )}
       </TouchableOpacity>
+
+      <Modal visible={datePickerVisible} animationType="slide" transparent onRequestClose={() => setDatePickerVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Select Date</Text>
+            <Calendar
+              minDate={new Date().toISOString().split("T")[0]}
+              onDayPress={(day: { dateString: string }) => {
+                setScheduleDate(day.dateString);
+                setDatePickerVisible(false);
+              }}
+              markedDates={scheduleDate ? { [scheduleDate]: { selected: true, selectedColor: "#1C1B18" } } : {}}
+              theme={{
+                todayTextColor: "#1C1B18",
+                selectedDayBackgroundColor: "#1C1B18",
+                arrowColor: "#1C1B18",
+              }}
+            />
+            <TouchableOpacity style={styles.applyBtn} onPress={() => setDatePickerVisible(false)}>
+              <Text style={styles.applyBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={zonePickerVisible} animationType="slide" transparent onRequestClose={() => setZonePickerVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, styles.zoneModalSheet]}>
+            <Text style={styles.modalTitle}>Select Timezone</Text>
+            <TextInput
+              style={styles.input}
+              value={zoneSearch}
+              onChangeText={setZoneSearch}
+              placeholder="Search timezone"
+              placeholderTextColor="#aaa"
+              autoCapitalize="none"
+            />
+            <FlatList
+              data={TIMEZONES.filter((z) => z.toLowerCase().includes(zoneSearch.trim().toLowerCase()))}
+              keyExtractor={(z) => z}
+              style={styles.zoneList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.zoneRow}
+                  onPress={() => {
+                    setTimezone(item);
+                    setZonePickerVisible(false);
+                    setZoneSearch("");
+                  }}
+                >
+                  <Text style={styles.zoneRowText}>{item}</Text>
+                  {item === timezone && <Ionicons name="checkmark" size={18} color="#F2650C" />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -337,6 +452,39 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
   },
   toggleLabel: { fontSize: 15, color: "#1C1B18" },
+  scheduleBox: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    gap: 4,
+  },
+  scheduleValue: { fontSize: 15, color: "#1C1B18" },
+  schedulePlaceholder: { fontSize: 15, color: "#aaa" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
+  zoneModalSheet: { height: "80%" },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#1C1B18", marginBottom: 16 },
+  zoneList: { marginTop: 12 },
+  zoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  zoneRowText: { fontSize: 14, color: "#1C1B18" },
+  applyBtn: {
+    backgroundColor: "#1C1B18",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  applyBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   submitBtn: {
     backgroundColor: "#1C1B18",
     borderRadius: 12,

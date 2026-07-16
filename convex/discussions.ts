@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
+import { requireAdmin } from "./adminAuth";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -195,10 +196,13 @@ export const list = query({
     }
 
     // Fetch and apply filters
+    const now = Date.now();
     let discussions = [];
     for (const id of allIds) {
       const d = await ctx.db.get(id);
       if (!d || d.isDeleted) continue;
+      // Scheduled (future-dated) posts stay hidden from everyone but their author until due.
+      if (d.postDate > now && d.userId !== callerProfile._id) continue;
       if (categoryId && d.categoryId !== categoryId) continue;
       if (authorId && d.userId !== authorId) continue;
       if (status && d.status !== status) continue;
@@ -272,6 +276,9 @@ export const list = query({
         replyCount,
         isRead,
         isOwner: d.userId === callerProfile._id,
+        isPinned: d.pinnedAt !== undefined,
+        isLiked: metas.some((m: any) => m.userId === callerProfile._id && m.type === "Like"),
+        isEndorsed: metas.some((m: any) => m.userId === callerProfile._id && m.type === "Endorse"),
         activityScore: likeCount + endorseCount + replyCount,
       });
     }
@@ -281,6 +288,14 @@ export const list = query({
     } else {
       result.sort((a, b) => b.postDate - a.postDate);
     }
+
+    // Pinned discussions always float to the top, newest pin first.
+    result.sort((a, b) => {
+      const aPin = a.pinnedAt ?? -1;
+      const bPin = b.pinnedAt ?? -1;
+      if (aPin === -1 && bPin === -1) return 0;
+      return bPin - aPin;
+    });
 
     return result.slice(0, limit);
   },
@@ -353,6 +368,11 @@ export const getDiscussion = query({
       });
     }
 
+    const followers = await ctx.db
+      .query("discussionFollowers")
+      .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
+      .collect();
+
     return {
       ...discussion,
       creator: { ...creator, profileImageUrl: creatorImageUrl },
@@ -364,12 +384,18 @@ export const getDiscussion = query({
       endorseCount: metas.filter((m: any) => m.type === "Endorse").length,
       replies,
       isOwner: callerProfile ? discussion.userId === callerProfile._id : false,
+      isAdmin: callerProfile ? !!callerProfile.isAdmin : false,
+      isPinned: discussion.pinnedAt !== undefined,
       isLiked: callerProfile
         ? metas.some((m: any) => m.userId === callerProfile._id && m.type === "Like")
         : false,
       isEndorsed: callerProfile
         ? metas.some((m: any) => m.userId === callerProfile._id && m.type === "Endorse")
         : false,
+      isFollowing: callerProfile
+        ? followers.some((f: any) => f.followerId === callerProfile._id)
+        : false,
+      followerCount: followers.length,
     };
   },
 });
@@ -544,7 +570,58 @@ export const addReply = mutation({
       }
     });
 
+    const followers = await ctx.db
+      .query("discussionFollowers")
+      .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
+      .collect();
+    for (const follower of followers) {
+      if (follower.followerId === profile._id) continue;
+      await ctx.db.insert("pushNotifications", {
+        userId: follower.followerId,
+        subject: "New reply",
+        message: `${profile.nickName} replied to a discussion you follow`,
+        entity: "Discussion",
+        entityId: discussionId,
+        isRead: false,
+      });
+    }
+
     return replyId;
+  },
+});
+
+// Toggle pin state. Pinned discussions sort to the top of the feed.
+// Admin/moderator only.
+export const togglePin = mutation({
+  args: { discussionId: v.id("discussions") },
+  handler: async (ctx, { discussionId }) => {
+    await requireAdmin(ctx);
+    const discussion = await ctx.db.get(discussionId);
+    if (!discussion) throw new Error("Discussion not found");
+    const pinned = discussion.pinnedAt !== undefined;
+    await ctx.db.patch(discussionId, { pinnedAt: pinned ? undefined : Date.now() });
+    return { pinned: !pinned };
+  },
+});
+
+// Toggle following a discussion for reply notifications.
+export const toggleFollow = mutation({
+  args: { discussionId: v.id("discussions") },
+  handler: async (ctx, { discussionId }) => {
+    const profile = await getCallerProfile(ctx);
+    const existing = await ctx.db
+      .query("discussionFollowers")
+      .withIndex("by_discussionId_followerId", (q: any) =>
+        q.eq("discussionId", discussionId).eq("followerId", profile._id)
+      )
+      .first();
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      return { following: false };
+    } else {
+      await ctx.db.insert("discussionFollowers", { discussionId, followerId: profile._id });
+      return { following: true };
+    }
   },
 });
 

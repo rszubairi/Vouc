@@ -27,6 +27,7 @@ import { useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import { WEB_APP_URL } from "../../../constants/links";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -101,6 +102,8 @@ export default function DiscussionDetailScreen() {
   const markRead = useMutation(api.discussions.markRead);
   const updateStatus = useMutation(api.discussions.updateStatus);
   const addReply = useMutation(api.discussions.addReply);
+  const togglePin = useMutation(api.discussions.togglePin);
+  const toggleFollow = useMutation(api.discussions.toggleFollow);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -126,6 +129,14 @@ export default function DiscussionDetailScreen() {
 
   async function handleEndorse() {
     await engage({ discussionId: id as Id<"discussions">, type: "Endorse" });
+  }
+
+  async function handleTogglePin() {
+    await togglePin({ discussionId: id as Id<"discussions"> });
+  }
+
+  async function handleToggleFollow() {
+    await toggleFollow({ discussionId: id as Id<"discussions"> });
   }
 
   async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
@@ -184,14 +195,12 @@ export default function DiscussionDetailScreen() {
   }
 
   async function handleShare() {
-    const link = Linking.createURL(`discussion/${id}`);
+    const appLink = Linking.createURL(`discussion/${id}`);
+    const webLink = `${WEB_APP_URL}/app?discussion=${id}`;
     const message = discussion?.topic ? `${discussion.topic}\n\n${discussion.details}` : discussion?.details ?? "";
+    const fullMessage = `${message}\n\n${appLink}\n\nDon't have Vouch yet? ${webLink}`;
     try {
-      await Share.share(
-        Platform.OS === "ios"
-          ? { message, url: link, title: discussion?.topic || "Vouch Discussion" }
-          : { message: `${message}\n\n${link}`, title: discussion?.topic || "Vouch Discussion" }
-      );
+      await Share.share({ message: fullMessage, title: discussion?.topic || "Vouch Discussion" });
     } catch {
       // user dismissed the native share sheet — nothing to do
     }
@@ -256,7 +265,29 @@ export default function DiscussionDetailScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+          <TouchableOpacity
+            style={[styles.iconBtn, discussion.isFollowing && styles.iconBtnActive]}
+            onPress={handleToggleFollow}
+          >
+            <Ionicons
+              name={discussion.isFollowing ? "notifications" : "notifications-outline"}
+              size={18}
+              color={discussion.isFollowing ? "#F2650C" : "#1C1B18"}
+            />
+          </TouchableOpacity>
+          {discussion.isAdmin && (
+            <TouchableOpacity
+              style={[styles.iconBtn, discussion.isPinned && styles.iconBtnActive]}
+              onPress={handleTogglePin}
+            >
+              <Ionicons
+                name={discussion.isPinned ? "pin" : "pin-outline"}
+                size={18}
+                color={discussion.isPinned ? "#F2650C" : "#1C1B18"}
+              />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
             <Ionicons name="share-outline" size={18} color="#1C1B18" />
           </TouchableOpacity>
           {discussion.isOwner && (
@@ -268,6 +299,12 @@ export default function DiscussionDetailScreen() {
       </View>
 
       <View style={styles.statusRow}>
+        {discussion.isPinned && (
+          <View style={styles.pinnedBadge}>
+            <Ionicons name="pin" size={11} color="#F2650C" />
+            <Text style={styles.pinnedText}>Pinned</Text>
+          </View>
+        )}
         <View style={[styles.statusBadge, isClosed ? styles.statusClosed : styles.statusOpen]}>
           <Text style={styles.statusText}>{isClosed ? "Closed" : "Open"}</Text>
         </View>
@@ -309,15 +346,27 @@ export default function DiscussionDetailScreen() {
           style={[styles.engBtn, discussion.isLiked && styles.engBtnActive]}
           onPress={handleLike}
         >
-          <Ionicons name={discussion.isLiked ? "thumbs-up" : "thumbs-up-outline"} size={16} color="#333" />
-          <Text style={styles.engBtnText}>{discussion.likeCount}</Text>
+          <Ionicons
+            name={discussion.isLiked ? "thumbs-up" : "thumbs-up-outline"}
+            size={16}
+            color={discussion.isLiked ? "#F2650C" : "#333"}
+          />
+          <Text style={[styles.engBtnText, discussion.isLiked && styles.engBtnTextActive]}>
+            {discussion.likeCount}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.engBtn, discussion.isEndorsed && styles.engBtnActive]}
           onPress={handleEndorse}
         >
-          <Ionicons name={discussion.isEndorsed ? "star" : "star-outline"} size={16} color="#333" />
-          <Text style={styles.engBtnText}>{discussion.endorseCount}</Text>
+          <Ionicons
+            name={discussion.isEndorsed ? "star" : "star-outline"}
+            size={16}
+            color={discussion.isEndorsed ? "#F2650C" : "#333"}
+          />
+          <Text style={[styles.engBtnText, discussion.isEndorsed && styles.engBtnTextActive]}>
+            {discussion.endorseCount}
+          </Text>
         </TouchableOpacity>
         <View style={styles.engBtn}>
           <Ionicons name="chatbubble-outline" size={16} color="#333" />
@@ -434,7 +483,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  shareBtn: {
+  iconBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -442,6 +491,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  iconBtnActive: { backgroundColor: "#F5EFE0" },
+  pinnedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#F5EFE0",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pinnedText: { color: "#F2650C", fontSize: 12, fontWeight: "700" },
   deleteBtn: {
     backgroundColor: "#fdecea",
     borderRadius: 8,
@@ -499,6 +559,7 @@ const styles = StyleSheet.create({
   },
   engBtnActive: { backgroundColor: "#F5EFE0" },
   engBtnText: { fontSize: 14, color: "#333", fontWeight: "600" },
+  engBtnTextActive: { color: "#F2650C" },
   closeBtn: {
     borderWidth: 1,
     borderColor: "#c0392b",

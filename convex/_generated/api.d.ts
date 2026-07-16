@@ -13,6 +13,8 @@ import type * as adminAuth from "../adminAuth.js";
 import type * as auth from "../auth.js";
 import type * as categories from "../categories.js";
 import type * as contactUs from "../contactUs.js";
+import type * as crons from "../crons.js";
+import type * as digests from "../digests.js";
 import type * as directoryCategoriesData from "../directoryCategoriesData.js";
 import type * as discussions from "../discussions.js";
 import type * as divisions from "../divisions.js";
@@ -45,6 +47,8 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   categories: typeof categories;
   contactUs: typeof contactUs;
+  crons: typeof crons;
+  digests: typeof digests;
   directoryCategoriesData: typeof directoryCategoriesData;
   discussions: typeof discussions;
   divisions: typeof divisions;

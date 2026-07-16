@@ -59,6 +59,46 @@ export const rebuildHierarchy = internalMutation({
   },
 });
 
+// After a profile's sponsor changes, every descendant's own cached upline
+// (profileHierarchies rows where userId = that descendant) is now stale —
+// it still reflects the old ancestor chain. Their sponsorId is untouched
+// (they structurally stay under profileId), but each descendant needs its
+// own hierarchy rebuilt to pick up the new ancestors above profileId.
+// Walks the real sponsor tree (not the cache) level-by-level via the
+// scheduler to stay under per-execution limits for large subtrees.
+export const cascadeRebuildDescendants = internalMutation({
+  args: {
+    frontier: v.array(v.id("profiles")),
+    level: v.number(),
+  },
+  handler: async (ctx, { frontier, level }) => {
+    if (level > MAX_HIERARCHY_LEVEL || frontier.length === 0) return;
+
+    const nextFrontier: Id<"profiles">[] = [];
+    for (const parentId of frontier) {
+      const children = await ctx.db
+        .query("profiles")
+        .withIndex("by_sponsorId", (q) => q.eq("sponsorId", parentId))
+        .filter((q) => q.eq(q.field("sponsorApproved"), true))
+        .collect();
+
+      for (const child of children) {
+        await ctx.scheduler.runAfter(0, internal.hierarchy.rebuildHierarchy, {
+          profileId: child._id,
+        });
+        nextFrontier.push(child._id);
+      }
+    }
+
+    if (nextFrontier.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.hierarchy.cascadeRebuildDescendants, {
+        frontier: nextFrontier,
+        level: level + 1,
+      });
+    }
+  },
+});
+
 // Writes one level of profileId's downline, then schedules the next level.
 // Splitting the (potentially huge) downline across scheduled mutations keeps
 // each execution's document reads/writes well under Convex's per-call limits.

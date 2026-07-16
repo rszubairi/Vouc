@@ -568,17 +568,31 @@ export const adminSetSponsor = mutation({
     }
     if (sponsorId) {
       // Prevent creating a cycle: the new sponsor cannot be a descendant of profileId.
+      // The visited set also guards against an unrelated pre-existing cycle further up
+      // the chain, which would otherwise make this walk read profiles forever.
+      const visited = new Set<string>();
       let current: typeof sponsorId | undefined = sponsorId;
       while (current) {
         if (current === profileId) {
           throw new Error("Cannot move a profile under its own downline.");
         }
+        if (visited.has(current)) {
+          throw new Error("Sponsor chain contains a cycle; cannot resolve upline.");
+        }
+        visited.add(current);
         const currentProfile: { sponsorId?: Id<"profiles"> } | null = await ctx.db.get(current);
         current = currentProfile?.sponsorId;
       }
     }
     await ctx.db.patch(profileId, { sponsorId });
     await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId });
+    // profileId's existing children keep their sponsorId untouched, so they
+    // structurally stay under profileId — but their own cached upline now
+    // needs to reflect the new ancestor chain above profileId.
+    await ctx.scheduler.runAfter(0, internal.hierarchy.cascadeRebuildDescendants, {
+      frontier: [profileId],
+      level: 1,
+    });
   },
 });
 

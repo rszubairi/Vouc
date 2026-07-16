@@ -226,6 +226,15 @@ export default defineSchema(
       .index("by_target_kind_user", ["targetType", "targetId", "kind", "userId"])
       .index("by_user_kind", ["userId", "kind"]),
 
+    // Checkpoint for the starred-discussion digest cron (convex/digests.ts):
+    // tracks, per user per discussion, when they were last notified so the
+    // job only summarizes replies newer than their last digest.
+    discussionDigestState: defineTable({
+      userId: v.id("profiles"),
+      discussionId: v.id("discussions"),
+      lastNotifiedAt: v.number(),
+    }).index("by_userId_discussionId", ["userId", "discussionId"]),
+
     discussionVisibilities: defineTable({
       discussionId: v.id("discussions"),
       userId: v.id("profiles"),

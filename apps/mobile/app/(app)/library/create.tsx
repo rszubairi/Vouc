@@ -10,10 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -33,6 +33,13 @@ export default function CreateLibraryItemScreen() {
     categoryId?: string;
   }>();
   const isDirectory = source === "directory";
+  const navigation = useNavigation();
+
+  useLayoutEffect(() => {
+    if (isDirectory) {
+      navigation.setOptions({ title: "Directory Item" });
+    }
+  }, [isDirectory, navigation]);
 
   // Directory items inherit their single category from the page they were
   // created from (see categoryIds below) — no picker needed, so the
@@ -45,13 +52,9 @@ export default function CreateLibraryItemScreen() {
 
   const [subject, setSubject] = useState("");
   const [details, setDetails] = useState("");
-  const [categoryIds, setCategoryIds] = useState<Id<"categories">[]>(
-    paramCategoryId ? [paramCategoryId as Id<"categories">] : []
+  const [categoryId, setCategoryId] = useState<Id<"categories"> | null>(
+    paramCategoryId ? (paramCategoryId as Id<"categories">) : null
   );
-
-  function toggleCategory(id: Id<"categories">) {
-    setCategoryIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
-  }
   const [nonChinaVideoLink, setNonChinaVideoLink] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -121,7 +124,7 @@ export default function CreateLibraryItemScreen() {
       const commonArgs = {
         title: subject.trim(),
         description: details.trim(),
-        categoryIds: categoryIds.length ? categoryIds : undefined,
+        categoryIds: categoryId ? [categoryId] : undefined,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
         allowRetweet: true,
@@ -174,15 +177,15 @@ export default function CreateLibraryItemScreen() {
 
         {!isDirectory && (
           <>
-            <Text style={styles.label}>Categories (optional)</Text>
+            <Text style={styles.label}>Category (optional)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
               {(categories ?? []).map((cat) => (
                 <TouchableOpacity
                   key={cat._id}
-                  style={[styles.chip, categoryIds.includes(cat._id) && styles.chipActive]}
-                  onPress={() => toggleCategory(cat._id)}
+                  style={[styles.chip, categoryId === cat._id && styles.chipActive]}
+                  onPress={() => setCategoryId((prev) => (prev === cat._id ? null : cat._id))}
                 >
-                  <Text style={[styles.chipText, categoryIds.includes(cat._id) && styles.chipTextActive]}>{cat.name}</Text>
+                  <Text style={[styles.chipText, categoryId === cat._id && styles.chipTextActive]}>{cat.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

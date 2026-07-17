@@ -351,7 +351,12 @@ export default function DiscussionsFeedScreen() {
       {/* FAB – Start discussion */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push("/(app)/discussion/create")}
+        onPress={() =>
+          router.push({
+            pathname: "/(app)/discussion/create",
+            params: selectedCategoryId ? { categoryId: selectedCategoryId } : undefined,
+          })
+        }
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>

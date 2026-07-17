@@ -34,7 +34,7 @@ export default function AppLayout() {
       <Stack.Screen name="event/[id]" options={{ ...subScreenOptions, title: "Event" }} />
       <Stack.Screen name="event/create" options={{ ...subScreenOptions, title: "Create Event" }} />
       <Stack.Screen name="library/[id]" options={{ ...subScreenOptions, title: "Library Item" }} />
-      <Stack.Screen name="library/create" options={{ ...subScreenOptions, title: "Create Library Item" }} />
+      <Stack.Screen name="library/create" options={{ ...subScreenOptions, title: "New Library Item" }} />
       <Stack.Screen name="network/[id]" options={{ ...subScreenOptions, title: "Member Profile" }} />
       <Stack.Screen name="profile" options={{ ...subScreenOptions, title: "My Profile" }} />
     </Stack>

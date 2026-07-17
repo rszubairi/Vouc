@@ -255,7 +255,7 @@ export function DataTable<T>({
             {orderedColumns.map((col) => (
               <col key={col.key} style={{ width: widthFor(col) }} />
             ))}
-            {actions && <col style={{ width: 140 }} />}
+            {actions && <col style={{ width: 56 }} />}
           </colgroup>
           <thead>
             <tr>
@@ -362,8 +362,8 @@ export function DataTable<T>({
                     </td>
                   ))}
                   {actions && (
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {actions(row)}
+                    <td className="px-2 py-3 text-right whitespace-nowrap">
+                      <div className="flex justify-end">{actions(row)}</div>
                     </td>
                   )}
                 </tr>

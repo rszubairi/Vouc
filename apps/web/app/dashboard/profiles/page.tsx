@@ -7,6 +7,7 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { DataTable, Column } from "../../../components/DataTable";
 import { Modal, FormField, inputClass } from "../../../components/Modal";
+import { ActionsMenu } from "../../../components/ActionsMenu";
 
 type Profile = {
   _id: Id<"profiles">;
@@ -205,31 +206,26 @@ export default function ProfilesPage() {
         onToggleSelect={toggleSelect}
         onToggleAll={toggleAll}
         actions={(row) => (
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setEditing(row)} className="text-sm text-blue-600 hover:underline">
-              Edit
-            </button>
-            <button
-              onClick={() => setFullAccess({ profileId: row._id, fullAccess: !row.fullAccess })}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              {row.fullAccess ? "Revoke Access" : "Grant Access"}
-            </button>
-            <button
-              onClick={() => setDisabled({ profileId: row._id, isDisabled: !row.isDisabled })}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              {row.isDisabled ? "Enable" : "Disable"}
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`Delete profile "${row.nickName}"?`)) deleteProfile({ profileId: row._id });
-              }}
-              className="text-sm text-red-600 hover:underline"
-            >
-              Delete
-            </button>
-          </div>
+          <ActionsMenu
+            items={[
+              { label: "Edit", onClick: () => setEditing(row) },
+              {
+                label: row.fullAccess ? "Revoke Access" : "Grant Access",
+                onClick: () => setFullAccess({ profileId: row._id, fullAccess: !row.fullAccess }),
+              },
+              {
+                label: row.isDisabled ? "Enable" : "Disable",
+                onClick: () => setDisabled({ profileId: row._id, isDisabled: !row.isDisabled }),
+              },
+              {
+                label: "Delete",
+                destructive: true,
+                onClick: () => {
+                  if (confirm(`Delete profile "${row.nickName}"?`)) deleteProfile({ profileId: row._id });
+                },
+              },
+            ]}
+          />
         )}
       />
 

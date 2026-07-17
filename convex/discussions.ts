@@ -148,7 +148,7 @@ export const list = query({
   args: {
     limit: v.optional(v.number()),
     keyword: v.optional(v.string()),
-    categoryId: v.optional(v.id("categories")),
+    categoryIds: v.optional(v.array(v.id("categories"))),
     authorId: v.optional(v.id("profiles")),
     status: v.optional(v.union(v.literal("Open"), v.literal("Closed"))),
     dateFrom: v.optional(v.number()),
@@ -158,7 +158,7 @@ export const list = query({
     ),
   },
   handler: async (ctx, args) => {
-    const { limit = 30, keyword, categoryId, authorId, status, dateFrom, dateTo, sort = "recent" } = args;
+    const { limit = 30, keyword, categoryIds, authorId, status, dateFrom, dateTo, sort = "recent" } = args;
 
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return [];
@@ -205,7 +205,7 @@ export const list = query({
       if (!d || d.isDeleted) continue;
       // Scheduled (future-dated) posts stay hidden from everyone but their author until due.
       if (d.postDate > now && d.userId !== callerProfile._id) continue;
-      if (categoryId && d.categoryId !== categoryId) continue;
+      if (categoryIds?.length && !d.categoryIds.some((c) => categoryIds.includes(c))) continue;
       if (authorId && d.userId !== authorId) continue;
       if (status && d.status !== status) continue;
       if (dateFrom !== undefined && d.postDate < dateFrom) continue;
@@ -244,7 +244,9 @@ export const list = query({
         ? (await ctx.db.get(creatorImage.imageId))?.url ?? null
         : null;
 
-      const category = d.categoryId ? await ctx.db.get(d.categoryId) : null;
+      const categories = (
+        await Promise.all(d.categoryIds.map((id) => ctx.db.get(id)))
+      ).filter((c): c is NonNullable<typeof c> => c !== null);
       const attachments = await attachmentsFor(ctx, d._id);
       const tags = await tagsFor(ctx, d._id);
 
@@ -271,7 +273,7 @@ export const list = query({
         ...d,
         creatorNickName: creator?.nickName ?? "",
         creatorProfileImageUrl,
-        categoryName: category?.name ?? null,
+        categoryNames: categories.map((c) => c.name),
         tags,
         attachments,
         images: attachments.filter((a) => a.kind === "image").map((a) => a.url),
@@ -327,7 +329,9 @@ export const getDiscussion = query({
       : null;
     const creatorImageUrl = creatorImage ? (await ctx.db.get(creatorImage.imageId))?.url : null;
 
-    const category = discussion.categoryId ? await ctx.db.get(discussion.categoryId) : null;
+    const categories = (
+      await Promise.all(discussion.categoryIds.map((id) => ctx.db.get(id)))
+    ).filter((c): c is NonNullable<typeof c> => c !== null);
     const attachments = await attachmentsFor(ctx, discussionId);
     const tags = await tagsFor(ctx, discussionId);
 
@@ -377,7 +381,7 @@ export const getDiscussion = query({
     return {
       ...discussion,
       creator: { ...creator, profileImageUrl: creatorImageUrl },
-      categoryName: category?.name ?? null,
+      categoryNames: categories.map((c) => c.name),
       tags,
       attachments,
       images: attachments.filter((a) => a.kind === "image").map((a) => a.url),
@@ -444,7 +448,7 @@ export const createDiscussion = mutation({
     details: v.string(),
     chinaVideoLink: v.optional(v.string()),
     nonChinaVideoLink: v.optional(v.string()),
-    categoryId: v.optional(v.id("categories")),
+    categoryIds: v.optional(v.array(v.id("categories"))),
     tags: v.optional(v.array(v.string())),
     postDate: v.optional(v.number()),
     selectedZone: v.optional(v.string()),
@@ -469,7 +473,7 @@ export const createDiscussion = mutation({
       details: args.details,
       chinaVideoLink: args.chinaVideoLink,
       nonChinaVideoLink: args.nonChinaVideoLink,
-      categoryId: args.categoryId,
+      categoryIds: args.categoryIds ?? [],
       status: "Open",
       postDate: args.postDate ?? Date.now(),
       selectedZone: args.selectedZone,

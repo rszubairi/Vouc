@@ -11,15 +11,15 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
-import { Id } from "../../../../../convex/_generated/dataModel";
+import { api } from "../../../../../../convex/_generated/api";
+import { Id } from "../../../../../../convex/_generated/dataModel";
 
-export default function LibraryItemDetailScreen() {
+export default function DirectoryItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const me = useQuery(api.profiles.me);
-  const item = useQuery(api.knowledgeHub.getItem, id ? { itemId: id as Id<"knowledgeHubItems"> } : "skip");
-  const deleteLibraryItem = useMutation(api.knowledgeHub.deleteItem);
+  const item = useQuery(api.library.getItem, id ? { itemId: id as Id<"libraryItems"> } : "skip");
+  const deleteLibraryItem = useMutation(api.library.deleteLibraryItem);
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
 
   if (item === undefined || me === undefined) {
@@ -42,7 +42,7 @@ export default function LibraryItemDetailScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await deleteLibraryItem({ itemId: id as Id<"knowledgeHubItems"> });
+          await deleteLibraryItem({ itemId: id as Id<"libraryItems"> });
           router.back();
         },
       },
@@ -86,7 +86,7 @@ export default function LibraryItemDetailScreen() {
       <View style={styles.statsRow}>
         <TouchableOpacity
           onPress={() =>
-            toggleEngagement({ targetType: "knowledgeHubItem", targetId: id as string, kind: "Like" })
+            toggleEngagement({ targetType: "libraryItem", targetId: id as string, kind: "Like" })
           }
         >
           <Text style={[styles.statText, item.isLiked && styles.statTextActive]}>
@@ -97,7 +97,7 @@ export default function LibraryItemDetailScreen() {
         <Text style={styles.statText}>💬 {item.commentCount}</Text>
         <TouchableOpacity
           onPress={() =>
-            toggleEngagement({ targetType: "knowledgeHubItem", targetId: id as string, kind: "Star" })
+            toggleEngagement({ targetType: "libraryItem", targetId: id as string, kind: "Star" })
           }
         >
           <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>
@@ -120,7 +120,6 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 60 },
   loader: { flex: 1, marginTop: 60 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  type: { fontSize: 12, color: "#888", textTransform: "uppercase", marginBottom: 6 },
   title: { fontSize: 20, fontWeight: "800", color: "#1C1B18", marginBottom: 4 },
   creatorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
   creatorAvatar: { width: 26, height: 26, borderRadius: 13 },

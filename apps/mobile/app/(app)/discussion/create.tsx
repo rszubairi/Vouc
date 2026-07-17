@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useState } from "react";
@@ -51,11 +51,9 @@ export default function CreateDiscussionScreen() {
   const router = useRouter();
   const createDiscussion = useMutation(api.discussions.createDiscussion);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
-  const categories = useQuery(api.categories.list, { scope: "discussion" });
 
   const [topic, setTopic] = useState("");
   const [details, setDetails] = useState("");
-  const [categoryId, setCategoryId] = useState<Id<"categories"> | undefined>(undefined);
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [nonChinaVideoLink, setNonChinaVideoLink] = useState("");
@@ -157,7 +155,6 @@ export default function CreateDiscussionScreen() {
       const discussionId = await createDiscussion({
         topic: topic.trim() || undefined,
         details: details.trim(),
-        categoryId,
         tags: tags.length ? tags : undefined,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
@@ -205,19 +202,6 @@ export default function CreateDiscussionScreen() {
         numberOfLines={6}
         textAlignVertical="top"
       />
-
-      <Text style={styles.label}>Category (optional)</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-        {(categories ?? []).map((cat) => (
-          <TouchableOpacity
-            key={cat._id}
-            style={[styles.chip, categoryId === cat._id && styles.chipActive]}
-            onPress={() => setCategoryId(categoryId === cat._id ? undefined : cat._id)}
-          >
-            <Text style={[styles.chipText, categoryId === cat._id && styles.chipTextActive]}>{cat.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
 
       <Text style={styles.label}>Tags / Keywords (optional)</Text>
       <View style={styles.tagInputRow}>
@@ -432,19 +416,6 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
   },
   multiline: { minHeight: 120, paddingTop: 12 },
-  chipScroll: { marginTop: 2 },
-  chip: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
-  chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
-  chipTextActive: { color: "#fff" },
   tagInputRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   tagInput: { flex: 1 },
   addTagBtn: {

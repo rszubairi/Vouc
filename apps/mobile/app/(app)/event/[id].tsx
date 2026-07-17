@@ -14,12 +14,17 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useState } from "react";
+import * as Calendar from "expo-calendar";
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const me = useQuery(api.profiles.me);
   const event = useQuery(api.events.getEvent, id ? { eventId: id as Id<"events"> } : "skip");
+  const attendees = useQuery(
+    api.events.getEventAttendees,
+    id && event?.isHost ? { eventId: id as Id<"events"> } : "skip"
+  );
   const rsvp = useMutation(api.events.rsvpEvent);
   const deleteEvent = useMutation(api.events.deleteEvent);
 
@@ -29,6 +34,39 @@ export default function EventDetailScreen() {
   const [paidVia, setPaidVia] = useState("");
   const [guestName, setGuestName] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [addingToCalendar, setAddingToCalendar] = useState(false);
+
+  async function handleAddToCalendar() {
+    if (!event) return;
+    try {
+      setAddingToCalendar(true);
+      const { status } = await Calendar.requestCalendarPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Please allow calendar access to save this event.");
+        return;
+      }
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const defaultCalendar =
+        calendars.find((c) => c.allowsModifications) ?? calendars[0];
+      if (!defaultCalendar) {
+        Alert.alert("No calendar found", "Couldn't find a calendar to save this event to.");
+        return;
+      }
+      await Calendar.createEventAsync(defaultCalendar.id, {
+        title: event.title,
+        startDate: new Date(event.eventDateStart),
+        endDate: new Date(event.eventDateEnd),
+        timeZone: event.selectedZone ?? undefined,
+        notes: event.details,
+        location: event.eventLink ?? undefined,
+      });
+      Alert.alert("Saved", "Event added to your calendar.");
+    } catch (err: any) {
+      Alert.alert("Couldn't save event", err.message ?? "Please try again.");
+    } finally {
+      setAddingToCalendar(false);
+    }
+  }
 
   if (event === undefined || me === undefined) {
     return <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />;
@@ -81,16 +119,33 @@ export default function EventDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.eventType}>{event.eventType}</Text>
-      <Text style={styles.title}>{event.title}</Text>
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.eventType}>{event.eventType}</Text>
+          <Text style={styles.title}>{event.title}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.calendarBtn}
+          onPress={handleAddToCalendar}
+          disabled={addingToCalendar}
+        >
+          {addingToCalendar ? (
+            <ActivityIndicator size="small" color="#1C1B18" />
+          ) : (
+            <Text style={styles.calendarBtnText}>📅 Save</Text>
+          )}
+        </TouchableOpacity>
+      </View>
       <Text style={styles.hostedBy}>Hosted by {event.creatorNickName}</Text>
+      {event.hosts.length > 0 && (
+        <Text style={styles.hostedBy}>Hosts: {event.hosts.map((h) => h.nickName).join(", ")}</Text>
+      )}
 
       <View style={styles.metaRow}>
         <Text style={styles.metaText}>
           {new Date(event.eventDateStart).toLocaleString()} – {new Date(event.eventDateEnd).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </Text>
       </View>
-      {event.speaker && <Text style={styles.metaText}>Speaker: {event.speaker}</Text>}
       {event.selectedZone && <Text style={styles.metaText}>Timezone: {event.selectedZone}</Text>}
 
       <Text style={styles.details}>{event.details}</Text>
@@ -145,6 +200,24 @@ export default function EventDetailScreen() {
         </View>
       )}
 
+      {event.isHost && (
+        <View style={styles.registrationBox}>
+          <Text style={styles.registrationTitle}>Registration ({attendees?.length ?? 0})</Text>
+          {attendees === undefined ? (
+            <ActivityIndicator size="small" color="#1C1B18" />
+          ) : attendees.length === 0 ? (
+            <Text style={styles.metaText}>No RSVPs yet.</Text>
+          ) : (
+            attendees.map((a) => (
+              <View key={a._id} style={styles.attendeeRow}>
+                <Text style={styles.attendeeName}>{a.guestName || a.attendeeNickName}</Text>
+                {!event.noPayment && <Text style={styles.metaText}>{a.paidVia} · {a.amount}</Text>}
+              </View>
+            ))
+          )}
+        </View>
+      )}
+
       {isOwner && (
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
           <Text style={styles.deleteBtnText}>Delete Event</Text>
@@ -159,6 +232,30 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 60 },
   loader: { flex: 1, marginTop: 60 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  calendarBtn: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  calendarBtnText: { fontSize: 13, fontWeight: "700", color: "#1C1B18" },
+  registrationBox: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    paddingTop: 16,
+  },
+  registrationTitle: { fontSize: 15, fontWeight: "700", color: "#1C1B18", marginBottom: 8 },
+  attendeeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
+  },
+  attendeeName: { fontSize: 14, color: "#1C1B18" },
   eventType: { fontSize: 12, color: "#888", textTransform: "uppercase", marginBottom: 6 },
   title: { fontSize: 22, fontWeight: "800", color: "#1C1B18", marginBottom: 4 },
   hostedBy: { fontSize: 14, color: "#666", marginBottom: 14 },

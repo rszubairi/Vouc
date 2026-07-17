@@ -5,14 +5,15 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Switch,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -27,21 +28,33 @@ type PendingAttachment = {
 
 export default function CreateLibraryItemScreen() {
   const router = useRouter();
-  const categories = useQuery(api.categories.list, { scope: "knowledgeHub" });
+  const { source, categoryId: paramCategoryId } = useLocalSearchParams<{
+    source?: string;
+    categoryId?: string;
+  }>();
+  const isDirectory = source === "directory";
+
+  // Directory items inherit their single category from the page they were
+  // created from (see categoryIds below) — no picker needed, so the
+  // category list is only fetched for the Knowledge Hub multi-select.
+  const categories = useQuery(api.categories.list, isDirectory ? "skip" : { scope: "knowledgeHub" });
   const createLibraryItem = useMutation(api.library.createLibraryItem);
+  const createKnowledgeHubItem = useMutation(api.knowledgeHub.createItem);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const [submitting, setSubmitting] = useState(false);
 
   const [subject, setSubject] = useState("");
   const [details, setDetails] = useState("");
-  const [categoryId, setCategoryId] = useState<Id<"categories"> | undefined>(undefined);
+  const [categoryIds, setCategoryIds] = useState<Id<"categories">[]>(
+    paramCategoryId ? [paramCategoryId as Id<"categories">] : []
+  );
+
+  function toggleCategory(id: Id<"categories">) {
+    setCategoryIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
+  }
   const [nonChinaVideoLink, setNonChinaVideoLink] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [allowRetweet, setAllowRetweet] = useState(true);
-  const [mustRead, setMustRead] = useState(false);
-  const [toUpline, setToUpline] = useState(true);
-  const [toDownline, setToDownline] = useState(true);
 
   async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
     const uploadUrl = await generateUploadUrl({});
@@ -57,18 +70,21 @@ export default function CreateLibraryItemScreen() {
   async function handlePickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Please allow photo library access to attach a photo.");
+      Alert.alert("Permission needed", "Please allow photo library access to attach photos.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: 10,
     });
-    if (result.canceled || !result.assets?.[0]) return;
-    const asset = result.assets[0];
+    if (result.canceled || !result.assets?.length) return;
     try {
       setUploading(true);
-      await uploadAsset(asset.uri, asset.mimeType, asset.fileName ?? undefined, "image");
+      for (const asset of result.assets) {
+        await uploadAsset(asset.uri, asset.mimeType, asset.fileName ?? undefined, "image");
+      }
     } catch (e: any) {
       Alert.alert("Error", e.message ?? "Failed to upload image.");
     } finally {
@@ -102,125 +118,120 @@ export default function CreateLibraryItemScreen() {
 
     try {
       setSubmitting(true);
-      const itemId = await createLibraryItem({
+      const commonArgs = {
         title: subject.trim(),
         description: details.trim(),
-        categoryId,
+        categoryIds: categoryIds.length ? categoryIds : undefined,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
-        allowRetweet,
-        mustRead,
-        toUpline,
-        toDownline,
+        allowRetweet: true,
+        mustRead: false,
+        toUpline: true,
+        toDownline: true,
         toSelectGroup: false,
         toCustom: false,
-      });
-      router.replace(`/(app)/library/${itemId}`);
+      };
+      const itemId = isDirectory
+        ? await createLibraryItem(commonArgs)
+        : await createKnowledgeHubItem(commonArgs);
+      router.replace(
+        isDirectory ? `/(app)/directory/item/${itemId}` : `/(app)/library/${itemId}`
+      );
     } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Could not create the library item.");
+      Alert.alert("Error", err.message ?? "Could not create the item.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>Subject</Text>
-      <TextInput
-        style={styles.input}
-        value={subject}
-        onChangeText={setSubject}
-        placeholder="e.g. Getting Started Guide"
-        placeholderTextColor="#aaa"
-      />
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={styles.label}>Subject</Text>
+        <TextInput
+          style={styles.input}
+          value={subject}
+          onChangeText={setSubject}
+          placeholder="e.g. Getting Started Guide"
+          placeholderTextColor="#aaa"
+        />
 
-      <Text style={styles.label}>Details *</Text>
-      <TextInput
-        style={[styles.input, styles.multiline]}
-        value={details}
-        onChangeText={setDetails}
-        placeholder="What is this resource about?"
-        placeholderTextColor="#aaa"
-        multiline
-        numberOfLines={6}
-        textAlignVertical="top"
-      />
+        <Text style={styles.label}>Details *</Text>
+        <TextInput
+          style={[styles.input, styles.multiline]}
+          value={details}
+          onChangeText={setDetails}
+          placeholder="What is this resource about?"
+          placeholderTextColor="#aaa"
+          multiline
+          numberOfLines={6}
+          textAlignVertical="top"
+        />
 
-      <Text style={styles.label}>Category (optional)</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-        {(categories ?? []).map((cat) => (
-          <TouchableOpacity
-            key={cat._id}
-            style={[styles.chip, categoryId === cat._id && styles.chipActive]}
-            onPress={() => setCategoryId(categoryId === cat._id ? undefined : cat._id)}
-          >
-            <Text style={[styles.chipText, categoryId === cat._id && styles.chipTextActive]}>{cat.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <Text style={styles.label}>Video Link (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={nonChinaVideoLink}
-        onChangeText={setNonChinaVideoLink}
-        placeholder="https://..."
-        placeholderTextColor="#aaa"
-        autoCapitalize="none"
-      />
-
-      <Text style={styles.label}>Attachments (optional)</Text>
-      <View style={styles.attachRow}>
-        <TouchableOpacity style={styles.attachBtn} onPress={handlePickImage} disabled={uploading}>
-          <Ionicons name="image-outline" size={18} color="#1C1B18" />
-          <Text style={styles.attachBtnText}>Photo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.attachBtn} onPress={handlePickFile} disabled={uploading}>
-          <Ionicons name="document-attach-outline" size={18} color="#1C1B18" />
-          <Text style={styles.attachBtnText}>File</Text>
-        </TouchableOpacity>
-        {uploading && <ActivityIndicator size="small" color="#1C1B18" />}
-      </View>
-      {attachments.length > 0 && (
-        <View style={styles.tagList}>
-          {attachments.map((a, i) => (
-            <TouchableOpacity key={i} style={styles.tagChip} onPress={() => removeAttachment(i)}>
-              <Ionicons name={a.kind === "image" ? "image" : "document"} size={12} color="#1C1B18" />
-              <Text style={styles.tagChipText} numberOfLines={1}>{a.fileName ?? a.kind}</Text>
-              <Ionicons name="close" size={12} color="#1C1B18" />
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Allow Retweet</Text>
-        <Switch value={allowRetweet} onValueChange={setAllowRetweet} trackColor={{ true: "#1C1B18" }} />
-      </View>
-
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Must Read</Text>
-        <Switch value={mustRead} onValueChange={setMustRead} trackColor={{ true: "#1C1B18" }} />
-      </View>
-
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Share to Upline</Text>
-        <Switch value={toUpline} onValueChange={setToUpline} trackColor={{ true: "#1C1B18" }} />
-      </View>
-
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Share to Downline</Text>
-        <Switch value={toDownline} onValueChange={setToDownline} trackColor={{ true: "#1C1B18" }} />
-      </View>
-
-      <TouchableOpacity style={styles.submitBtn} onPress={handleCreate} disabled={submitting || uploading}>
-        {submitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.submitText}>Create Item</Text>
+        {!isDirectory && (
+          <>
+            <Text style={styles.label}>Categories (optional)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+              {(categories ?? []).map((cat) => (
+                <TouchableOpacity
+                  key={cat._id}
+                  style={[styles.chip, categoryIds.includes(cat._id) && styles.chipActive]}
+                  onPress={() => toggleCategory(cat._id)}
+                >
+                  <Text style={[styles.chipText, categoryIds.includes(cat._id) && styles.chipTextActive]}>{cat.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
         )}
-      </TouchableOpacity>
-    </ScrollView>
+
+        <Text style={styles.label}>Video Link (optional)</Text>
+        <TextInput
+          style={styles.input}
+          value={nonChinaVideoLink}
+          onChangeText={setNonChinaVideoLink}
+          placeholder="https://..."
+          placeholderTextColor="#aaa"
+          autoCapitalize="none"
+        />
+
+        <Text style={styles.label}>Attachments (optional)</Text>
+        <View style={styles.attachRow}>
+          <TouchableOpacity style={styles.attachBtn} onPress={handlePickImage} disabled={uploading}>
+            <Ionicons name="image-outline" size={18} color="#1C1B18" />
+            <Text style={styles.attachBtnText}>Photos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.attachBtn} onPress={handlePickFile} disabled={uploading}>
+            <Ionicons name="document-attach-outline" size={18} color="#1C1B18" />
+            <Text style={styles.attachBtnText}>File</Text>
+          </TouchableOpacity>
+          {uploading && <ActivityIndicator size="small" color="#1C1B18" />}
+        </View>
+        {attachments.length > 0 && (
+          <View style={styles.tagList}>
+            {attachments.map((a, i) => (
+              <TouchableOpacity key={i} style={styles.tagChip} onPress={() => removeAttachment(i)}>
+                <Ionicons name={a.kind === "image" ? "image" : "document"} size={12} color="#1C1B18" />
+                <Text style={styles.tagChipText} numberOfLines={1}>{a.fileName ?? a.kind}</Text>
+                <Ionicons name="close" size={12} color="#1C1B18" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.submitBtn} onPress={handleCreate} disabled={submitting || uploading}>
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitText}>Create Item</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -277,19 +288,6 @@ const styles = StyleSheet.create({
     maxWidth: 200,
   },
   tagChipText: { fontSize: 12, color: "#1C1B18", fontWeight: "600" },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  toggleLabel: { fontSize: 15, color: "#1C1B18" },
   submitBtn: {
     backgroundColor: "#1C1B18",
     borderRadius: 12,

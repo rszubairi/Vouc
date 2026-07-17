@@ -6,6 +6,9 @@ import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { countEngagement, isEngagedBy } from "./engagements";
 
+// Knowledge Hub's own item store — separate from Directory's libraryItems
+// table so the two modules can never cross-contaminate data or routes.
+
 async function getCallerProfile(ctx: any) {
   const authUserId = await getAuthUserId(ctx);
   if (!authUserId) throw new Error("Not authenticated");
@@ -17,50 +20,19 @@ async function getCallerProfile(ctx: any) {
   return profile;
 }
 
-export const listDivisions = query({
-  args: {},
-  handler: async (ctx) => {
-    // Rows with a `sqlId` predate this feature (migrated from the legacy
-    // Nu Skin product catalog) and are excluded from the Directory picker —
-    // their posts stay in place, just not reachable via category browsing.
-    const divisions = await ctx.db.query("divisions").collect();
-    return divisions.filter((d) => d.sqlId === undefined);
-  },
-});
-
-// Directory only ever deals in "library"-scoped categories (or legacy rows
-// with no scope set, which predate the field and are all Library categories).
-// Knowledge Hub categories (scope "knowledgeHub") must never leak in here —
-// that's what caused the Category picker mixup in Create Library Item.
-function isDirectoryScoped(c: { scope?: string }) {
-  return (c.scope ?? "library") !== "knowledgeHub";
+function isKnowledgeHubScoped(c: { scope?: string }) {
+  return c.scope === "knowledgeHub";
 }
-
-export const listCategories = query({
-  args: { divisionId: v.optional(v.id("divisions")) },
-  handler: async (ctx, { divisionId }) => {
-    if (divisionId) {
-      const categories = await ctx.db
-        .query("categories")
-        .withIndex("by_divisionId", (q) => q.eq("divisionId", divisionId))
-        .collect();
-      return categories.filter((c) => c.sqlId === undefined && isDirectoryScoped(c));
-    }
-    const categories = await ctx.db.query("categories").collect();
-    return categories.filter((c) => c.sqlId === undefined && isDirectoryScoped(c));
-  },
-});
 
 export const listItems = query({
   args: {
     categoryId: v.optional(v.id("categories")),
-    type: v.optional(v.string()),
     limit: v.optional(v.number()),
     sortBy: v.optional(
       v.union(v.literal("recent"), v.literal("liked"), v.literal("starred"))
     ),
   },
-  handler: async (ctx, { categoryId, type, limit = 30, sortBy = "recent" }) => {
+  handler: async (ctx, { categoryId, limit = 30, sortBy = "recent" }) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return [];
 
@@ -70,24 +42,22 @@ export const listItems = query({
       .first();
     if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
 
-    let itemIds: Set<Id<"libraryItems">>;
+    let itemIds: Set<Id<"knowledgeHubItems">>;
     if (callerProfile.fullAccess) {
-      // Full-access accounts see every library item regardless of visibility records.
       const all = await ctx.db
-        .query("libraryItems")
+        .query("knowledgeHubItems")
         .filter((q) => q.eq(q.field("isDeleted"), false))
         .collect();
       itemIds = new Set(all.map((i) => i._id));
     } else {
       const visibilities = await ctx.db
-        .query("libraryVisibilities")
+        .query("knowledgeHubVisibilities")
         .withIndex("by_userId", (q) => q.eq("userId", callerProfile._id))
         .collect();
-      itemIds = new Set(visibilities.map((v) => v.libraryItemId));
+      itemIds = new Set(visibilities.map((v) => v.knowledgeHubItemId));
 
-      // Also own items
       const ownItems = await ctx.db
-        .query("libraryItems")
+        .query("knowledgeHubItems")
         .withIndex("by_userId", (q) => q.eq("userId", callerProfile._id))
         .filter((q) => q.eq(q.field("isDeleted"), false))
         .collect();
@@ -99,7 +69,6 @@ export const listItems = query({
       const item = await ctx.db.get(itemId);
       if (!item || item.isDeleted) continue;
       if (categoryId && !item.categoryIds.includes(categoryId)) continue;
-      if (type && item.type !== type) continue;
 
       const creator = await ctx.db.get(item.userId);
       const creatorImage = creator
@@ -113,10 +82,10 @@ export const listItems = query({
         ? (await ctx.db.get(creatorImage.imageId))?.url ?? null
         : null;
 
-      const likeCount = await countEngagement(ctx, "libraryItem", item._id, "Like");
-      const starCount = await countEngagement(ctx, "libraryItem", item._id, "Star");
-      const isLiked = await isEngagedBy(ctx, "libraryItem", item._id, "Like", callerProfile._id);
-      const isStarred = await isEngagedBy(ctx, "libraryItem", item._id, "Star", callerProfile._id);
+      const likeCount = await countEngagement(ctx, "knowledgeHubItem", item._id, "Like");
+      const starCount = await countEngagement(ctx, "knowledgeHubItem", item._id, "Star");
+      const isLiked = await isEngagedBy(ctx, "knowledgeHubItem", item._id, "Like", callerProfile._id);
+      const isStarred = await isEngagedBy(ctx, "knowledgeHubItem", item._id, "Star", callerProfile._id);
 
       results.push({
         ...item,
@@ -141,7 +110,7 @@ export const listItems = query({
 });
 
 export const getItem = query({
-  args: { itemId: v.id("libraryItems") },
+  args: { itemId: v.id("knowledgeHubItems") },
   handler: async (ctx, { itemId }) => {
     const item = await ctx.db.get(itemId);
     if (!item || item.isDeleted) return null;
@@ -167,8 +136,8 @@ export const getItem = query({
       : null;
 
     const images = await ctx.db
-      .query("libraryImages")
-      .withIndex("by_libraryItemId", (q) => q.eq("libraryItemId", itemId))
+      .query("knowledgeHubImages")
+      .withIndex("by_knowledgeHubItemId", (q) => q.eq("knowledgeHubItemId", itemId))
       .collect();
     const imageUrls: string[] = [];
     for (const li of images.sort((a, b) => a.order - b.order)) {
@@ -177,8 +146,8 @@ export const getItem = query({
     }
 
     const docs = await ctx.db
-      .query("libraryDocuments")
-      .withIndex("by_libraryItemId", (q) => q.eq("libraryItemId", itemId))
+      .query("knowledgeHubDocuments")
+      .withIndex("by_knowledgeHubItemId", (q) => q.eq("knowledgeHubItemId", itemId))
       .collect();
     const docList = [];
     for (const ld of docs) {
@@ -187,8 +156,8 @@ export const getItem = query({
     }
 
     const metas = await ctx.db
-      .query("libraryItemMetas")
-      .withIndex("by_libraryItemId", (q) => q.eq("libraryItemId", itemId))
+      .query("knowledgeHubItemMetas")
+      .withIndex("by_knowledgeHubItemId", (q) => q.eq("knowledgeHubItemId", itemId))
       .collect();
 
     const categories = (
@@ -202,15 +171,15 @@ export const getItem = query({
       categoryNames: categories.map((c) => c.name),
       images: imageUrls,
       documents: docList,
-      likeCount: await countEngagement(ctx, "libraryItem", itemId, "Like"),
+      likeCount: await countEngagement(ctx, "knowledgeHubItem", itemId, "Like"),
       endorseCount: metas.filter((m) => m.type === "Endorse").length,
       commentCount: metas.filter((m) => m.type === "Comment").length,
-      starCount: await countEngagement(ctx, "libraryItem", itemId, "Star"),
+      starCount: await countEngagement(ctx, "knowledgeHubItem", itemId, "Star"),
       isLiked: callerProfile
-        ? await isEngagedBy(ctx, "libraryItem", itemId, "Like", callerProfile._id)
+        ? await isEngagedBy(ctx, "knowledgeHubItem", itemId, "Like", callerProfile._id)
         : false,
       isStarred: callerProfile
-        ? await isEngagedBy(ctx, "libraryItem", itemId, "Star", callerProfile._id)
+        ? await isEngagedBy(ctx, "knowledgeHubItem", itemId, "Star", callerProfile._id)
         : false,
     };
   },
@@ -222,14 +191,11 @@ const attachmentInput = v.object({
   fileName: v.optional(v.string()),
 });
 
-export const createLibraryItem = mutation({
+export const createItem = mutation({
   args: {
     title: v.string(),
     description: v.string(),
     categoryIds: v.optional(v.array(v.id("categories"))),
-    division: v.optional(v.string()),
-    tag: v.optional(v.string()),
-    chinaVideoLink: v.optional(v.string()),
     nonChinaVideoLink: v.optional(v.string()),
     allowRetweet: v.boolean(),
     mustRead: v.boolean(),
@@ -248,25 +214,21 @@ export const createLibraryItem = mutation({
 
     for (const categoryId of args.categoryIds ?? []) {
       const category = await ctx.db.get(categoryId);
-      if (!category || !isDirectoryScoped(category)) {
-        throw new Error("Invalid category for Directory item");
+      if (!category || !isKnowledgeHubScoped(category)) {
+        throw new Error("Invalid category for Knowledge Hub item");
       }
     }
 
-    const itemId = await ctx.db.insert("libraryItems", {
+    const itemId = await ctx.db.insert("knowledgeHubItems", {
       userId: profile._id,
       title: args.title,
       description: args.description,
       categoryIds: args.categoryIds ?? [],
-      division: args.division,
-      tag: args.tag,
       postDate: Date.now(),
-      chinaVideoLink: args.chinaVideoLink,
       nonChinaVideoLink: args.nonChinaVideoLink,
       allowRetweet: args.allowRetweet,
       mustRead: args.mustRead,
       isDeleted: false,
-      superAccount: false,
       toUpline: args.toUpline,
       toDownline: args.toDownline,
       toSelectGroup: args.toSelectGroup,
@@ -283,7 +245,7 @@ export const createLibraryItem = mutation({
       if (!url) continue;
       if (a.kind === "image") {
         const imageId = await ctx.db.insert("images", { userId: profile._id, url, storageId: a.storageId });
-        await ctx.db.insert("libraryImages", { libraryItemId: itemId, imageId, order: imageOrder++ });
+        await ctx.db.insert("knowledgeHubImages", { knowledgeHubItemId: itemId, imageId, order: imageOrder++ });
       } else {
         const documentId = await ctx.db.insert("documents", {
           userId: profile._id,
@@ -291,11 +253,10 @@ export const createLibraryItem = mutation({
           url,
           storageId: a.storageId,
         });
-        await ctx.db.insert("libraryDocuments", { libraryItemId: itemId, documentId });
+        await ctx.db.insert("knowledgeHubDocuments", { knowledgeHubItemId: itemId, documentId });
       }
     }
 
-    // Distribute visibility (same logic as posts/events)
     const maxLevelNum = parseLevel(args.maxLevel);
     const minLevelNum = parseLevel(args.minLevel);
     const recipientIds = new Set<string>();
@@ -326,14 +287,14 @@ export const createLibraryItem = mutation({
     for (const userId of recipientIds) {
       const profileId = userId as Id<"profiles">;
       const existing = await ctx.db
-        .query("libraryVisibilities")
-        .withIndex("by_libraryItemId_userId", (q) =>
-          q.eq("libraryItemId", itemId).eq("userId", profileId)
+        .query("knowledgeHubVisibilities")
+        .withIndex("by_knowledgeHubItemId_userId", (q) =>
+          q.eq("knowledgeHubItemId", itemId).eq("userId", profileId)
         )
         .first();
       if (!existing) {
-        await ctx.db.insert("libraryVisibilities", {
-          libraryItemId: itemId,
+        await ctx.db.insert("knowledgeHubVisibilities", {
+          knowledgeHubItemId: itemId,
           userId: profileId,
           isRead: profileId === profile._id,
         });
@@ -344,8 +305,8 @@ export const createLibraryItem = mutation({
   },
 });
 
-export const deleteLibraryItem = mutation({
-  args: { itemId: v.id("libraryItems") },
+export const deleteItem = mutation({
+  args: { itemId: v.id("knowledgeHubItems") },
   handler: async (ctx, { itemId }) => {
     const profile = await getCallerProfile(ctx);
     const item = await ctx.db.get(itemId);

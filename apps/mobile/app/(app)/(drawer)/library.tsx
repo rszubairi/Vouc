@@ -40,21 +40,20 @@ export default function LibraryScreen() {
   const [sortVisible, setSortVisible] = useState(false);
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
 
-  // This screen stays mounted in the background as a Drawer tab, so a
-  // subsequent navigation here (e.g. from Directory) only changes the route
-  // params — it doesn't remount the component, so the useState initializer
-  // above never re-runs. Without this, re-navigating here with a new
-  // categoryId leaves the stale selectedCategoryId in place and the user
-  // sees whatever category was previously selected (or the top-level grid).
+  // This screen stays mounted in the background as a Drawer tab, so
+  // re-entering it (e.g. via the drawer menu) only changes the route params —
+  // it doesn't remount the component, so the useState initializer above never
+  // re-runs. Knowledge Hub no longer receives categoryId from Directory (that
+  // has its own screen now), so any param change or param-less re-entry
+  // should always reflect the current route exactly, including resetting
+  // back to the top-level grid.
   useEffect(() => {
-    if (paramCategoryId) {
-      setSelectedCategoryId(paramCategoryId as Id<"categories">);
-    }
+    setSelectedCategoryId((paramCategoryId as Id<"categories"> | undefined) ?? null);
   }, [paramCategoryId]);
 
   const categories = useQuery(api.categories.list, { scope: "knowledgeHub" });
   const items = useQuery(
-    api.library.listItems,
+    api.knowledgeHub.listItems,
     selectedCategoryId ? { categoryId: selectedCategoryId, sortBy: sort } : "skip"
   );
   const [search, setSearch] = useState("");
@@ -67,26 +66,11 @@ export default function LibraryScreen() {
     return [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
   }, [categories]);
 
-  // The selected category may not belong to the Knowledge Hub's own
-  // (scope: "knowledgeHub") category set — e.g. it can be a Directory
-  // category (scope: "library") passed in via the categoryId param. Fall
-  // back to fetching it directly by id so the back-label/header still show
-  // the right name instead of a generic placeholder.
-  const fallbackCategory = useQuery(
-    api.categories.get,
-    selectedCategoryId && !sortedCategories.some((c) => c._id === selectedCategoryId)
-      ? { id: selectedCategoryId }
-      : "skip"
-  );
-
   const selectedCategory = useMemo(
-    () => sortedCategories.find((c) => c._id === selectedCategoryId) ?? fallbackCategory ?? null,
-    [sortedCategories, selectedCategoryId, fallbackCategory]
+    () => sortedCategories.find((c) => c._id === selectedCategoryId) ?? null,
+    [sortedCategories, selectedCategoryId]
   );
 
-  // Reflect the actual context in the header instead of always showing the
-  // static "Knowledge Hub" title — important when this screen is reached
-  // via Directory with a category that isn't part of the Knowledge Hub set.
   useLayoutEffect(() => {
     navigation.setOptions({
       title: selectedCategory ? selectedCategory.name : "Knowledge Hub",
@@ -213,7 +197,7 @@ export default function LibraryScreen() {
                   style={styles.engagementItem}
                   onPress={(e) => {
                     e.stopPropagation();
-                    toggleEngagement({ targetType: "libraryItem", targetId: item._id, kind: "Like" });
+                    toggleEngagement({ targetType: "knowledgeHubItem", targetId: item._id, kind: "Like" });
                   }}
                   hitSlop={8}
                 >
@@ -228,12 +212,12 @@ export default function LibraryScreen() {
                   style={styles.engagementItem}
                   onPress={(e) => {
                     e.stopPropagation();
-                    toggleEngagement({ targetType: "libraryItem", targetId: item._id, kind: "Star" });
+                    toggleEngagement({ targetType: "knowledgeHubItem", targetId: item._id, kind: "Star" });
                   }}
                   hitSlop={8}
                 >
                   <Ionicons
-                    name={item.isStarred ? "bookmark" : "bookmark-outline"}
+                    name={item.isStarred ? "star" : "star-outline"}
                     size={14}
                     color={item.isStarred ? "#F2650C" : "#666"}
                   />
@@ -258,9 +242,14 @@ export default function LibraryScreen() {
       </TouchableOpacity>
 
       <Modal visible={sortVisible} animationType="slide" transparent onRequestClose={() => setSortVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Sort Library</Text>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSortVisible(false)}>
+          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Sort Library</Text>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSortVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.modalLabel}>Sort by</Text>
             <View style={styles.chipRow}>
@@ -280,15 +269,15 @@ export default function LibraryScreen() {
                 style={[styles.chip, sort === "starred" && styles.chipActive]}
                 onPress={() => setSort("starred")}
               >
-                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Star</Text>
+                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Starred</Text>
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.applyBtn} onPress={() => setSortVisible(false)}>
               <Text style={styles.applyBtnText}>Apply</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -422,7 +411,16 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 32,
   },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1B18", marginBottom: 16 },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1B18" },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FAF5EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalLabel: { fontSize: 13, fontWeight: "700", color: "#888", marginBottom: 8, marginTop: 8 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {

@@ -102,7 +102,7 @@ export default function DivisionsScreen() {
                       style={styles.categoryRow}
                       onPress={() =>
                         router.push({
-                          pathname: "/(app)/library",
+                          pathname: "/(app)/directory/[categoryId]",
                           params: { categoryId: cat._id },
                         })
                       }

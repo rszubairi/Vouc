@@ -25,13 +25,26 @@ export const me = query({
       .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
       .filter((q) => q.eq(q.field("isPrimary"), true))
       .first();
+    const profileImageUrl = image ? (await ctx.db.get(image.imageId))?.url ?? null : null;
 
-    if (image) {
-      const img = await ctx.db.get(image.imageId);
-      return { ...profile, profileImageUrl: img?.url ?? null };
-    }
+    const sponsor = profile.sponsorId ? await ctx.db.get(profile.sponsorId) : null;
 
-    return { ...profile, profileImageUrl: null };
+    const languageRows = await ctx.db
+      .query("profileLanguages")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+    const marketRows = await ctx.db
+      .query("profileMarkets")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+
+    return {
+      ...profile,
+      profileImageUrl,
+      sponsorName: sponsor?.nickName ?? null,
+      languages: languageRows.map((r) => r.language),
+      markets: marketRows.map((r) => r.market),
+    };
   },
 });
 
@@ -131,6 +144,7 @@ export const updateProfile = mutation({
     tiktok: v.optional(v.string()),
     discord: v.optional(v.string()),
     weChat: v.optional(v.string()),
+    youtube: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
@@ -149,6 +163,99 @@ export const updateProfile = mutation({
     }
 
     await ctx.db.patch(profile._id, updates);
+  },
+});
+
+// Replace the current user's "languages to follow" preference.
+export const updateMyLanguages = mutation({
+  args: { languages: v.array(v.string()) },
+  handler: async (ctx, { languages }) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", authUserId))
+      .first();
+    if (!profile) throw new Error("Profile not found");
+
+    const existing = await ctx.db
+      .query("profileLanguages")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+    for (const row of existing) {
+      await ctx.db.delete(row._id);
+    }
+    for (const language of languages) {
+      await ctx.db.insert("profileLanguages", { profileId: profile._id, language });
+    }
+  },
+});
+
+// Replace the current user's "markets to follow" preference.
+export const updateMyMarkets = mutation({
+  args: { markets: v.array(v.string()) },
+  handler: async (ctx, { markets }) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", authUserId))
+      .first();
+    if (!profile) throw new Error("Profile not found");
+
+    const existing = await ctx.db
+      .query("profileMarkets")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+    for (const row of existing) {
+      await ctx.db.delete(row._id);
+    }
+    for (const market of markets) {
+      await ctx.db.insert("profileMarkets", { profileId: profile._id, market });
+    }
+  },
+});
+
+// Change the current user's sponsor ("Referred by"), resolved by email first
+// and falling back to nickname. Re-enters pending-approval state, mirroring
+// registration (convex/profiles.ts `create`), since the hierarchy tables key
+// off `sponsorApproved`.
+export const updateMyReferrer = mutation({
+  args: { referrer: v.string() },
+  handler: async (ctx, { referrer }) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", authUserId))
+      .first();
+    if (!profile) throw new Error("Profile not found");
+
+    const trimmed = referrer.trim();
+    if (!trimmed) throw new Error("Enter an email or username.");
+
+    let sponsor = await ctx.db
+      .query("profiles")
+      .withIndex("by_email", (q) => q.eq("emailAddress", trimmed))
+      .first();
+    if (!sponsor) {
+      sponsor = await ctx.db
+        .query("profiles")
+        .filter((q) => q.eq(q.field("nickName"), trimmed))
+        .first();
+    }
+    if (!sponsor) throw new Error("No member found with that email or username.");
+    if (sponsor._id === profile._id) throw new Error("You can't refer yourself.");
+
+    await ctx.db.patch(profile._id, {
+      sponsorId: sponsor._id,
+      sponsorApproved: false,
+      sponsorEmailAddress: sponsor.emailAddress,
+    });
+    await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId: profile._id });
   },
 });
 
@@ -234,7 +341,24 @@ export const getById = query({
 
     const imgUrl = image ? (await ctx.db.get(image.imageId))?.url ?? null : null;
 
-    return { ...profile, profileImageUrl: imgUrl };
+    const sponsor = profile.sponsorId ? await ctx.db.get(profile.sponsorId) : null;
+
+    const languageRows = await ctx.db
+      .query("profileLanguages")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profileId))
+      .collect();
+    const marketRows = await ctx.db
+      .query("profileMarkets")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profileId))
+      .collect();
+
+    return {
+      ...profile,
+      profileImageUrl: imgUrl,
+      sponsorName: sponsor?.nickName ?? null,
+      languages: languageRows.map((r) => r.language),
+      markets: marketRows.map((r) => r.market),
+    };
   },
 });
 
@@ -432,6 +556,7 @@ export const adminUpdateProfile = mutation({
     tiktok: v.optional(v.string()),
     discord: v.optional(v.string()),
     weChat: v.optional(v.string()),
+    youtube: v.optional(v.string()),
     sponsorApproved: v.optional(v.boolean()),
     fullAccess: v.optional(v.boolean()),
     isAdmin: v.optional(v.boolean()),

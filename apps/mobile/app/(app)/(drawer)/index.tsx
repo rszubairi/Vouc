@@ -40,7 +40,7 @@ type FeedDiscussion = {
   details: string;
   creatorNickName: string;
   creatorProfileImageUrl: string | null;
-  categoryName: string | null;
+  categoryNames: string[];
   tags: string[];
   images: string[];
   status: "Open" | "Closed";
@@ -99,11 +99,11 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
         <View style={[styles.statusBadge, isClosed ? styles.statusClosed : styles.statusOpen]}>
           <Text style={styles.statusBadgeText}>{isClosed ? "Closed" : "Open"}</Text>
         </View>
-        {discussion.categoryName && (
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{discussion.categoryName}</Text>
+        {discussion.categoryNames.map((name) => (
+          <View key={name} style={styles.categoryBadge}>
+            <Text style={styles.categoryBadgeText}>{name}</Text>
           </View>
-        )}
+        ))}
       </View>
 
       {/* Creator */}
@@ -168,7 +168,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           hitSlop={8}
         >
           <Ionicons
-            name={discussion.isStarred ? "bookmark" : "bookmark-outline"}
+            name={discussion.isStarred ? "star" : "star-outline"}
             size={16}
             color={discussion.isStarred ? "#F2650C" : "#666"}
           />
@@ -203,6 +203,11 @@ export default function DiscussionsFeedScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<Id<"categories"> | null>(
     (paramCategoryId as Id<"categories"> | undefined) ?? null
   );
+  // "All Discussions" bypasses category browsing entirely — without it,
+  // discussions posted with no category (or a category the reader hasn't
+  // tapped into) are unreachable, since the feed otherwise only ever queries
+  // by a single selected category.
+  const [viewAll, setViewAll] = useState(false);
   const [status, setStatus] = useState<StatusFilter>("All");
   const [sort, setSort] = useState<SortMode>("recent");
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
@@ -211,11 +216,11 @@ export default function DiscussionsFeedScreen() {
   const categories = useQuery(api.categories.list, { scope: "discussion" });
   const discussions = useQuery(
     api.discussions.list,
-    selectedCategoryId
+    selectedCategoryId || viewAll
       ? {
           limit: 50,
           keyword: search.trim() || undefined,
-          categoryId: selectedCategoryId,
+          categoryIds: selectedCategoryId ? [selectedCategoryId] : undefined,
           status: status === "All" ? undefined : status,
           sort,
         }
@@ -239,7 +244,7 @@ export default function DiscussionsFeedScreen() {
     setTimeout(() => setRefreshing(false), 600);
   }
 
-  if (!selectedCategoryId) {
+  if (!selectedCategoryId && !viewAll) {
     return (
       <View style={styles.container}>
         {categories === undefined ? (
@@ -250,6 +255,15 @@ export default function DiscussionsFeedScreen() {
             keyExtractor={(c) => c._id}
             estimatedItemSize={64}
             contentContainerStyle={styles.list}
+            ListHeaderComponent={
+              <TouchableOpacity style={styles.categoryCard} onPress={() => setViewAll(true)}>
+                <View style={styles.categoryIconWrap}>
+                  <Ionicons name="albums-outline" size={22} color="#F2650C" />
+                </View>
+                <Text style={styles.categoryName}>All Discussions</Text>
+                <Ionicons name="chevron-forward" size={18} color="#999" />
+              </TouchableOpacity>
+            }
             renderItem={({ item: category }) => (
               <TouchableOpacity
                 style={styles.categoryCard}
@@ -279,9 +293,15 @@ export default function DiscussionsFeedScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backRow} onPress={() => setSelectedCategoryId(null)}>
+      <TouchableOpacity
+        style={styles.backRow}
+        onPress={() => {
+          setSelectedCategoryId(null);
+          setViewAll(false);
+        }}
+      >
         <Ionicons name="chevron-back" size={18} color="#F2650C" />
-        <Text style={styles.backText}>{selectedCategory?.name ?? "Categories"}</Text>
+        <Text style={styles.backText}>{selectedCategory?.name ?? (viewAll ? "All Discussions" : "Categories")}</Text>
       </TouchableOpacity>
 
       {searchVisible && (
@@ -338,9 +358,22 @@ export default function DiscussionsFeedScreen() {
 
       {/* Filter modal */}
       <Modal visible={filterVisible} animationType="slide" transparent onRequestClose={() => setFilterVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Filter Discussions</Text>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setFilterVisible(false)}
+        >
+          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Filter Discussions</Text>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setFilterVisible(false)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.modalLabel}>Status</Text>
             <View style={styles.chipRow}>
@@ -379,15 +412,15 @@ export default function DiscussionsFeedScreen() {
                 style={[styles.chip, sort === "starred" && styles.chipActive]}
                 onPress={() => setSort("starred")}
               >
-                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Star</Text>
+                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Starred</Text>
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.applyBtn} onPress={() => setFilterVisible(false)}>
               <Text style={styles.applyBtnText}>Apply</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -536,7 +569,16 @@ const styles = StyleSheet.create({
   fabText: { color: "#fff", fontSize: 30, lineHeight: 34 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#1C1B18", marginBottom: 16 },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#1C1B18" },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FAF5EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalLabel: { fontSize: 13, fontWeight: "600", color: "#555", marginBottom: 8, marginTop: 12 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {

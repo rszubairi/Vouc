@@ -35,7 +35,6 @@ export default function NetworkScreen() {
   const [sort, setSort] = useState<SortMode>("recent");
   const all = useQuery(api.profiles.listDirectory, { sort });
   const approveSponsor = useMutation(api.profiles.approveSponsor);
-  const toggleEngagement = useMutation(api.engagements.toggleEngagement);
   const [search, setSearch] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -158,34 +157,6 @@ export default function NetworkScreen() {
             <Text style={styles.subText}>{item.city}, {item.country}</Text>
             <Text style={styles.memberSince}>Member since {formatMemberSince(item._creationTime)}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.rowActionBtn}
-            onPress={(e) => {
-              e.stopPropagation();
-              toggleEngagement({ targetType: "profile", targetId: item._id, kind: "Like" });
-            }}
-            hitSlop={8}
-          >
-            <Ionicons
-              name={item.isLiked ? "thumbs-up" : "thumbs-up-outline"}
-              size={16}
-              color={item.isLiked ? "#F2650C" : "#666"}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.rowActionBtn}
-            onPress={(e) => {
-              e.stopPropagation();
-              toggleEngagement({ targetType: "profile", targetId: item._id, kind: "Star" });
-            }}
-            hitSlop={8}
-          >
-            <Ionicons
-              name={item.isStarred ? "bookmark" : "bookmark-outline"}
-              size={16}
-              color={item.isStarred ? "#F2650C" : "#666"}
-            />
-          </TouchableOpacity>
         </TouchableOpacity>
       )}
       ListEmptyComponent={
@@ -196,9 +167,14 @@ export default function NetworkScreen() {
     />
 
     <Modal visible={sortVisible} animationType="slide" transparent onRequestClose={() => setSortVisible(false)}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalSheet}>
-          <Text style={styles.modalTitle}>Sort Directory</Text>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSortVisible(false)}>
+        <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.modalHeaderRow}>
+            <Text style={styles.modalTitle}>Sort Directory</Text>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSortVisible(false)} hitSlop={8}>
+              <Ionicons name="close" size={20} color="#1C1B18" />
+            </TouchableOpacity>
+          </View>
 
           <Text style={styles.modalLabel}>Sort by</Text>
           <View style={styles.chipRow}>
@@ -218,15 +194,15 @@ export default function NetworkScreen() {
               style={[styles.chip, sort === "starred" && styles.chipActive]}
               onPress={() => setSort("starred")}
             >
-              <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Star</Text>
+              <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Starred</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.applyBtn} onPress={() => setSortVisible(false)}>
             <Text style={styles.applyBtnText}>Apply</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
     </>
   );
@@ -283,7 +259,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", paddingTop: 40 },
   emptyText: { fontSize: 15, color: "#888" },
   searchBar: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
-  rowActionBtn: { padding: 6, marginLeft: 4 },
   filterIconBtn: {
     width: 40,
     height: 40,
@@ -315,7 +290,16 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 32,
   },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1B18", marginBottom: 16 },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1B18" },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FAF5EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalLabel: { fontSize: 13, fontWeight: "700", color: "#888", marginBottom: 8, marginTop: 8 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {

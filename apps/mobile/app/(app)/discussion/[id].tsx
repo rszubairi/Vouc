@@ -294,11 +294,11 @@ export default function DiscussionDetailScreen() {
         <View style={[styles.statusBadge, isClosed ? styles.statusClosed : styles.statusOpen]}>
           <Text style={styles.statusText}>{isClosed ? "Closed" : "Open"}</Text>
         </View>
-        {discussion.categoryName && (
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{discussion.categoryName}</Text>
+        {discussion.categoryNames.map((name: string) => (
+          <View key={name} style={styles.categoryBadge}>
+            <Text style={styles.categoryBadgeText}>{name}</Text>
           </View>
-        )}
+        ))}
       </View>
 
       {discussion.topic ? <Text style={styles.topic}>{discussion.topic}</Text> : null}
@@ -363,7 +363,7 @@ export default function DiscussionDetailScreen() {
           onPress={handleStar}
         >
           <Ionicons
-            name={discussion.isStarred ? "bookmark" : "bookmark-outline"}
+            name={discussion.isStarred ? "star" : "star-outline"}
             size={16}
             color={discussion.isStarred ? "#F2650C" : "#333"}
           />

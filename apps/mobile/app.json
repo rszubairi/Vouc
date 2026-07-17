@@ -31,6 +31,12 @@
       "expo-image",
       "expo-document-picker",
       [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow Vouch to add events to your calendar."
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Allow Vouch to access your camera to take photos.",

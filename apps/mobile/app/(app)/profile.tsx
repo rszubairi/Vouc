@@ -15,6 +15,8 @@ import { api } from "../../../../convex/_generated/api";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
+import { LANGUAGES } from "../../constants/languages";
+import { MARKETS } from "../../constants/markets";
 
 export default function ProfileScreen() {
   const me = useQuery(api.profiles.me);
@@ -22,6 +24,9 @@ export default function ProfileScreen() {
   const requestDeleteAccount = useMutation(api.profiles.requestDeleteAccount);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const setProfileImage = useMutation(api.profiles.setProfileImage);
+  const updateMyLanguages = useMutation(api.profiles.updateMyLanguages);
+  const updateMyMarkets = useMutation(api.profiles.updateMyMarkets);
+  const updateMyReferrer = useMutation(api.profiles.updateMyReferrer);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -36,7 +41,21 @@ export default function ProfileScreen() {
     website: "",
     instagram: "",
     facebook: "",
+    twitter: "",
+    line: "",
+    tiktok: "",
+    weChat: "",
+    youtube: "",
   });
+
+  const [referrer, setReferrer] = useState("");
+  const [savingReferrer, setSavingReferrer] = useState(false);
+
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [savingLanguages, setSavingLanguages] = useState(false);
+
+  const [markets, setMarkets] = useState<string[]>([]);
+  const [savingMarkets, setSavingMarkets] = useState(false);
 
   useEffect(() => {
     if (me) {
@@ -51,12 +70,30 @@ export default function ProfileScreen() {
         website: me.website ?? "",
         instagram: me.instagram ?? "",
         facebook: me.facebook ?? "",
+        twitter: me.twitter ?? "",
+        line: me.line ?? "",
+        tiktok: me.tiktok ?? "",
+        weChat: me.weChat ?? "",
+        youtube: me.youtube ?? "",
       });
+      setReferrer(me.sponsorName ?? "");
+      setLanguages(me.languages ?? []);
+      setMarkets(me.markets ?? []);
     }
   }, [me?._id]);
 
   function set(field: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function toggleLanguage(language: string) {
+    setLanguages((prev) =>
+      prev.includes(language) ? prev.filter((l) => l !== language) : [...prev, language]
+    );
+  }
+
+  function toggleMarket(market: string) {
+    setMarkets((prev) => (prev.includes(market) ? prev.filter((m) => m !== market) : [...prev, market]));
   }
 
   async function handleSave() {
@@ -68,6 +105,41 @@ export default function ProfileScreen() {
       Alert.alert("Error", err.message ?? "Could not save your profile.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveReferrer() {
+    if (!referrer.trim()) return;
+    try {
+      setSavingReferrer(true);
+      await updateMyReferrer({ referrer: referrer.trim() });
+      Alert.alert("Saved", "Your referrer has been updated and is pending their approval.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Could not update your referrer.");
+    } finally {
+      setSavingReferrer(false);
+    }
+  }
+
+  async function handleSaveLanguages() {
+    try {
+      setSavingLanguages(true);
+      await updateMyLanguages({ languages });
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Could not save languages.");
+    } finally {
+      setSavingLanguages(false);
+    }
+  }
+
+  async function handleSaveMarkets() {
+    try {
+      setSavingMarkets(true);
+      await updateMyMarkets({ markets });
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Could not save markets.");
+    } finally {
+      setSavingMarkets(false);
     }
   }
 
@@ -202,9 +274,103 @@ export default function ProfileScreen() {
       <Text style={styles.label}>Facebook</Text>
       <TextInput style={styles.input} value={form.facebook} onChangeText={(v) => set("facebook", v)} autoCapitalize="none" />
 
+      <Text style={styles.label}>X</Text>
+      <TextInput style={styles.input} value={form.twitter} onChangeText={(v) => set("twitter", v)} autoCapitalize="none" />
+
+      <Text style={styles.label}>Line</Text>
+      <TextInput style={styles.input} value={form.line} onChangeText={(v) => set("line", v)} autoCapitalize="none" />
+
+      <Text style={styles.label}>TikTok</Text>
+      <TextInput style={styles.input} value={form.tiktok} onChangeText={(v) => set("tiktok", v)} autoCapitalize="none" />
+
+      <Text style={styles.label}>YouTube</Text>
+      <TextInput style={styles.input} value={form.youtube} onChangeText={(v) => set("youtube", v)} autoCapitalize="none" />
+
+      <Text style={styles.label}>WeChat</Text>
+      <TextInput style={styles.input} value={form.weChat} onChangeText={(v) => set("weChat", v)} autoCapitalize="none" />
+
       <TouchableOpacity style={[styles.saveBtn, saving && styles.btnDisabled]} onPress={handleSave} disabled={saving}>
         {saving ? <ActivityIndicator color="#F5EFE0" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
       </TouchableOpacity>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Referred By</Text>
+        <TextInput
+          style={styles.input}
+          value={referrer}
+          onChangeText={setReferrer}
+          placeholder="Email or username"
+          placeholderTextColor="#aaa"
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          style={[styles.secondaryBtn, savingReferrer && styles.btnDisabled]}
+          onPress={handleSaveReferrer}
+          disabled={savingReferrer}
+        >
+          {savingReferrer ? (
+            <ActivityIndicator color="#1C1B18" />
+          ) : (
+            <Text style={styles.secondaryBtnText}>Update Referrer</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Languages to Follow</Text>
+        <View style={styles.chipWrap}>
+          {LANGUAGES.map((language) => (
+            <TouchableOpacity
+              key={language}
+              style={[styles.chip, languages.includes(language) && styles.chipActive]}
+              onPress={() => toggleLanguage(language)}
+            >
+              <Text style={[styles.chipText, languages.includes(language) && styles.chipTextActive]}>
+                {language}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={[styles.secondaryBtn, savingLanguages && styles.btnDisabled]}
+          onPress={handleSaveLanguages}
+          disabled={savingLanguages}
+        >
+          {savingLanguages ? (
+            <ActivityIndicator color="#1C1B18" />
+          ) : (
+            <Text style={styles.secondaryBtnText}>Save Languages</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Markets to Follow</Text>
+        <View style={styles.chipWrap}>
+          {MARKETS.map((market) => (
+            <TouchableOpacity
+              key={market}
+              style={[styles.chip, markets.includes(market) && styles.chipActive]}
+              onPress={() => toggleMarket(market)}
+            >
+              <Text style={[styles.chipText, markets.includes(market) && styles.chipTextActive]}>
+                {market}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={[styles.secondaryBtn, savingMarkets && styles.btnDisabled]}
+          onPress={handleSaveMarkets}
+          disabled={savingMarkets}
+        >
+          {savingMarkets ? (
+            <ActivityIndicator color="#1C1B18" />
+          ) : (
+            <Text style={styles.secondaryBtnText}>Save Markets</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount}>
         <Text style={styles.deleteBtnText}>Request Account Deletion</Text>
@@ -257,6 +423,34 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   saveBtnText: { color: "#F2650C", fontSize: 16, fontWeight: "700" },
+  section: {
+    marginTop: 28,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#e5ddc9",
+  },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: "#1C1B18", marginBottom: 10 },
+  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  chip: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
+  chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  secondaryBtn: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#1C1B18",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  secondaryBtnText: { color: "#1C1B18", fontSize: 14, fontWeight: "700" },
   deleteBtn: { alignItems: "center", marginTop: 20, padding: 10 },
   deleteBtnText: { color: "#c0392b", fontSize: 14, fontWeight: "600" },
 });

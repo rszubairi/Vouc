@@ -16,15 +16,17 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 
 const SOCIAL_LINKS: {
-  key: "website" | "instagram" | "facebook" | "twitter" | "tiktok";
+  key: "website" | "instagram" | "facebook" | "twitter" | "tiktok" | "youtube" | "line";
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   { key: "website", label: "Website", icon: "globe-outline" },
   { key: "instagram", label: "Instagram", icon: "logo-instagram" },
   { key: "facebook", label: "Facebook", icon: "logo-facebook" },
-  { key: "twitter", label: "Twitter", icon: "logo-twitter" },
+  { key: "twitter", label: "X", icon: "logo-x" },
   { key: "tiktok", label: "TikTok", icon: "logo-tiktok" },
+  { key: "youtube", label: "YouTube", icon: "logo-youtube" },
+  { key: "line", label: "Line", icon: "chatbubble-outline" },
 ];
 
 function formatMemberSince(creationTime: number) {
@@ -86,6 +88,19 @@ export default function MemberProfileScreen() {
         </View>
       </View>
 
+      {profile.sponsorName ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Sponsor</Text>
+          <View style={styles.metaRow}>
+            <Ionicons name="person-outline" size={14} color="#999" />
+            <Text style={styles.subText}>
+              {profile.sponsorName}
+              {!profile.sponsorApproved ? " (pending approval)" : ""}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {profile.bio ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>About</Text>
@@ -113,6 +128,47 @@ export default function MemberProfileScreen() {
           ))}
         </View>
       )}
+
+      {profile.weChat ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>WeChat</Text>
+          <View style={styles.metaRow}>
+            <Ionicons name="logo-wechat" size={14} color="#999" />
+            <Text style={styles.subText}>{profile.weChat}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {profile.languages?.length || profile.markets?.length ? (
+        <View style={styles.card}>
+          {profile.languages?.length ? (
+            <>
+              <Text style={styles.cardTitle}>Languages</Text>
+              <View style={styles.badgeWrap}>
+                {profile.languages.map((language) => (
+                  <View key={language} style={styles.badge}>
+                    <Text style={styles.badgeText}>{language}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+          {profile.markets?.length ? (
+            <>
+              <Text style={[styles.cardTitle, profile.languages?.length ? styles.cardTitleSpaced : null]}>
+                Markets
+              </Text>
+              <View style={styles.badgeWrap}>
+                {profile.markets.map((market) => (
+                  <View key={market} style={styles.badge}>
+                    <Text style={styles.badgeText}>{market}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -164,7 +220,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitle: { fontSize: 13, fontWeight: "700", color: "#1C1B18", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 },
+  cardTitleSpaced: { marginTop: 16 },
   bio: { fontSize: 14, color: "#333", lineHeight: 21 },
+  badgeWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  badge: {
+    backgroundColor: "#F5EFE0",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  badgeText: { fontSize: 12, color: "#1C1B18", fontWeight: "600" },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",

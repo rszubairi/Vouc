@@ -23,6 +23,7 @@ import type * as events from "../events.js";
 import type * as groups from "../groups.js";
 import type * as hierarchy from "../hierarchy.js";
 import type * as http from "../http.js";
+import type * as knowledgeHub from "../knowledgeHub.js";
 import type * as library from "../library.js";
 import type * as migrateDiscussions from "../migrateDiscussions.js";
 import type * as migration from "../migration.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   groups: typeof groups;
   hierarchy: typeof hierarchy;
   http: typeof http;
+  knowledgeHub: typeof knowledgeHub;
   library: typeof library;
   migrateDiscussions: typeof migrateDiscussions;
   migration: typeof migration;

@@ -58,7 +58,7 @@ export const run = internalMutation({
         details: p.details,
         chinaVideoLink: (p as any).chinaVideoLink,
         nonChinaVideoLink: (p as any).nonChinaVideoLink,
-        categoryId: undefined,
+        categoryIds: [],
         status: "Open",
         postDate: p.postDate,
         selectedZone: p.selectedZone,

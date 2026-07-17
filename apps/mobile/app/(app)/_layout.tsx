@@ -29,6 +29,8 @@ export default function AppLayout() {
       {/* Pushed on top of the drawer's own stack, so back always returns to the actual previous screen. */}
       <Stack.Screen name="discussion/[id]" options={{ ...subScreenOptions, title: "Discussion" }} />
       <Stack.Screen name="discussion/create" options={{ ...subScreenOptions, title: "Start Discussion" }} />
+      <Stack.Screen name="directory/[categoryId]" options={{ ...subScreenOptions, title: "Directory" }} />
+      <Stack.Screen name="directory/item/[id]" options={{ ...subScreenOptions, title: "Directory Item" }} />
       <Stack.Screen name="event/[id]" options={{ ...subScreenOptions, title: "Event" }} />
       <Stack.Screen name="event/create" options={{ ...subScreenOptions, title: "Create Event" }} />
       <Stack.Screen name="library/[id]" options={{ ...subScreenOptions, title: "Library Item" }} />

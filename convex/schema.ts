@@ -54,6 +54,7 @@ export default defineSchema(
       tiktok: v.optional(v.string()),
       discord: v.optional(v.string()),
       weChat: v.optional(v.string()),
+      youtube: v.optional(v.string()),
       isAdmin: v.optional(v.boolean()), // grants access to the /dashboard admin console
     })
       .index("by_userId", ["userId"])
@@ -124,7 +125,7 @@ export default defineSchema(
       details: v.string(),
       chinaVideoLink: v.optional(v.string()),
       nonChinaVideoLink: v.optional(v.string()),
-      categoryId: v.optional(v.id("categories")),
+      categoryIds: v.array(v.id("categories")),
       status: v.union(v.literal("Open"), v.literal("Closed")),
       postDate: v.number(),
       selectedZone: v.optional(v.string()),
@@ -146,11 +147,10 @@ export default defineSchema(
     })
       .index("by_userId", ["userId"])
       .index("by_postDate", ["postDate"])
-      .index("by_categoryId", ["categoryId"])
       .index("by_status", ["status"])
       .searchIndex("search_details", {
         searchField: "details",
-        filterFields: ["isDeleted", "categoryId", "status"],
+        filterFields: ["isDeleted", "status"],
       }),
 
     discussionFollowers: defineTable({
@@ -217,6 +217,7 @@ export default defineSchema(
       targetType: v.union(
         v.literal("discussion"),
         v.literal("libraryItem"),
+        v.literal("knowledgeHubItem"),
         v.literal("profile")
       ),
       targetId: v.string(),
@@ -293,6 +294,12 @@ export default defineSchema(
       order: v.number(),
     }).index("by_eventId", ["eventId"]),
 
+    eventFiles: defineTable({
+      eventId: v.id("events"),
+      documentId: v.id("documents"),
+      order: v.number(),
+    }).index("by_eventId", ["eventId"]),
+
     eventMetas: defineTable({
       eventId: v.id("events"),
       userId: v.id("profiles"),
@@ -351,7 +358,7 @@ export default defineSchema(
       title: v.string(),
       description: v.string(),
       type: v.optional(v.string()), // deprecated — no longer set by the create form
-      categoryId: v.optional(v.id("categories")),
+      categoryIds: v.array(v.id("categories")),
       division: v.optional(v.string()),
       tag: v.optional(v.string()),
       postDate: v.number(),
@@ -371,8 +378,7 @@ export default defineSchema(
       maxLevel: v.optional(v.string()),
       minRank: v.optional(v.string()),
     })
-      .index("by_userId", ["userId"])
-      .index("by_categoryId", ["categoryId"]),
+      .index("by_userId", ["userId"]),
 
     libraryImages: defineTable({
       libraryItemId: v.id("libraryItems"),
@@ -420,6 +426,59 @@ export default defineSchema(
       libraryItemId: v.id("libraryItems"),
       market: v.string(),
     }).index("by_libraryItemId", ["libraryItemId"]),
+
+    // ─── Knowledge Hub ──────────────────────────────────────────────────────
+    // Own table family, separate from libraryItems (Directory), so the two
+    // modules never share rows/queries and posting to one can't leak into
+    // the other or collide on categoryId.
+
+    knowledgeHubItems: defineTable({
+      userId: v.id("profiles"),
+      title: v.string(),
+      description: v.string(),
+      categoryIds: v.array(v.id("categories")),
+      postDate: v.number(),
+      nonChinaVideoLink: v.optional(v.string()),
+      allowRetweet: v.boolean(),
+      mustRead: v.boolean(),
+      isDeleted: v.boolean(),
+      toUpline: v.boolean(),
+      toDownline: v.boolean(),
+      toSelectGroup: v.boolean(),
+      toCustom: v.boolean(),
+      groupId: v.optional(v.id("groups")),
+      minLevel: v.optional(v.string()),
+      maxLevel: v.optional(v.string()),
+      minRank: v.optional(v.string()),
+    })
+      .index("by_userId", ["userId"]),
+
+    knowledgeHubImages: defineTable({
+      knowledgeHubItemId: v.id("knowledgeHubItems"),
+      imageId: v.id("images"),
+      order: v.number(),
+    }).index("by_knowledgeHubItemId", ["knowledgeHubItemId"]),
+
+    knowledgeHubDocuments: defineTable({
+      knowledgeHubItemId: v.id("knowledgeHubItems"),
+      documentId: v.id("documents"),
+    }).index("by_knowledgeHubItemId", ["knowledgeHubItemId"]),
+
+    knowledgeHubItemMetas: defineTable({
+      knowledgeHubItemId: v.id("knowledgeHubItems"),
+      userId: v.id("profiles"),
+      type: v.union(v.literal("Like"), v.literal("Endorse"), v.literal("Comment")),
+      comment: v.optional(v.string()),
+    }).index("by_knowledgeHubItemId", ["knowledgeHubItemId"]),
+
+    knowledgeHubVisibilities: defineTable({
+      knowledgeHubItemId: v.id("knowledgeHubItems"),
+      userId: v.id("profiles"),
+      isRead: v.boolean(),
+    })
+      .index("by_knowledgeHubItemId", ["knowledgeHubItemId"])
+      .index("by_userId", ["userId"])
+      .index("by_knowledgeHubItemId_userId", ["knowledgeHubItemId", "userId"]),
 
     // ─── Products / Divisions ─────────────────────────────────────────────────
 

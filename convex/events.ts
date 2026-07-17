@@ -6,6 +6,61 @@ import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { requireAdmin } from "./adminAuth";
 
+const attachmentInput = v.object({
+  storageId: v.id("_storage"),
+  kind: v.union(v.literal("image"), v.literal("file")),
+  fileName: v.optional(v.string()),
+});
+
+async function saveAttachments(
+  ctx: any,
+  profileId: Id<"profiles">,
+  eventId: Id<"events">,
+  attachments: Array<{ storageId: Id<"_storage">; kind: "image" | "file"; fileName?: string }> | undefined
+) {
+  if (!attachments) return;
+  for (let i = 0; i < attachments.length; i++) {
+    const a = attachments[i];
+    const url = await ctx.storage.getUrl(a.storageId);
+    if (!url) continue;
+    if (a.kind === "image") {
+      const imageId = await ctx.db.insert("images", { userId: profileId, url, storageId: a.storageId });
+      await ctx.db.insert("eventImages", { eventId, imageId, order: i });
+    } else {
+      const documentId = await ctx.db.insert("documents", {
+        userId: profileId,
+        name: a.fileName ?? "File",
+        url,
+        storageId: a.storageId,
+      });
+      await ctx.db.insert("eventFiles", { eventId, documentId, order: i });
+    }
+  }
+}
+
+async function attachmentsFor(ctx: any, eventId: Id<"events">) {
+  const imageRows = await ctx.db
+    .query("eventImages")
+    .withIndex("by_eventId", (q: any) => q.eq("eventId", eventId))
+    .collect();
+  const fileRows = await ctx.db
+    .query("eventFiles")
+    .withIndex("by_eventId", (q: any) => q.eq("eventId", eventId))
+    .collect();
+
+  const attachments: Array<{ kind: "image" | "file"; url: string; name?: string; order: number }> = [];
+  for (const row of imageRows) {
+    const img = await ctx.db.get(row.imageId);
+    if (img) attachments.push({ kind: "image", url: img.url, order: row.order });
+  }
+  for (const row of fileRows) {
+    const doc = await ctx.db.get(row.documentId);
+    if (doc) attachments.push({ kind: "file", url: doc.url, name: doc.name, order: row.order });
+  }
+  attachments.sort((a, b) => a.order - b.order);
+  return attachments;
+}
+
 async function getCallerProfile(ctx: any) {
   const authUserId = await getAuthUserId(ctx);
   if (!authUserId) throw new Error("Not authenticated");
@@ -104,7 +159,7 @@ export const createEvent = mutation({
     maxLevel: v.optional(v.string()),
     minRank: v.optional(v.string()),
     coHostIds: v.optional(v.array(v.id("profiles"))),
-    imageUrls: v.optional(v.array(v.string())),
+    attachments: v.optional(v.array(attachmentInput)),
   },
   handler: async (ctx, args) => {
     const profile = await getCallerProfile(ctx);
@@ -143,16 +198,7 @@ export const createEvent = mutation({
       }
     }
 
-    // Images
-    if (args.imageUrls) {
-      for (let i = 0; i < args.imageUrls.length; i++) {
-        const imageId = await ctx.db.insert("images", {
-          userId: profile._id,
-          url: args.imageUrls[i],
-        });
-        await ctx.db.insert("eventImages", { eventId, imageId, order: i });
-      }
-    }
+    await saveAttachments(ctx, profile._id, eventId, args.attachments);
 
     await distributeEvent(ctx, eventId, profile, args);
 
@@ -212,6 +258,7 @@ export const getEvent = query({
       .query("eventHosts")
       .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
       .collect();
+    const hostProfiles = await Promise.all(hosts.map((h) => ctx.db.get(h.userId)));
     const attendances = await ctx.db
       .query("eventAttendances")
       .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
@@ -221,14 +268,60 @@ export const getEvent = query({
       .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
       .collect();
 
+    let isHost = false;
+    const authUserId = await getAuthUserId(ctx);
+    if (authUserId) {
+      const callerProfile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", authUserId))
+        .first();
+      isHost =
+        !!callerProfile &&
+        (callerProfile._id === event.userId ||
+          hosts.some((h) => h.userId === callerProfile._id));
+    }
+
     return {
       ...event,
       creatorNickName: creator?.nickName ?? "",
+      hosts: hostProfiles
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => ({ _id: p._id, nickName: p.nickName })),
       hostCount: hosts.length,
       attendeeCount: attendances.length,
       likeCount: metas.filter((m) => m.type === "Like").length,
       commentCount: metas.filter((m) => m.type === "Comment").length,
+      attachments: await attachmentsFor(ctx, eventId),
+      isHost,
     };
+  },
+});
+
+// Registration/RSVP list — only visible to the event owner or its hosts.
+export const getEventAttendees = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, { eventId }) => {
+    const profile = await getCallerProfile(ctx);
+    const event = await ctx.db.get(eventId);
+    if (!event || event.isDeleted) throw new Error("Event not found");
+
+    const hosts = await ctx.db
+      .query("eventHosts")
+      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+      .collect();
+    const isHost = profile._id === event.userId || hosts.some((h) => h.userId === profile._id);
+    if (!isHost) throw new Error("Not authorized");
+
+    const attendances = await ctx.db
+      .query("eventAttendances")
+      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+      .collect();
+    const attendeeProfiles = await Promise.all(attendances.map((a) => ctx.db.get(a.userId)));
+
+    return attendances.map((a, i) => ({
+      ...a,
+      attendeeNickName: attendeeProfiles[i]?.nickName ?? "Unknown",
+    }));
   },
 });
 

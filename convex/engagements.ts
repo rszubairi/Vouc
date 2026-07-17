@@ -5,6 +5,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 const targetType = v.union(
   v.literal("discussion"),
   v.literal("libraryItem"),
+  v.literal("knowledgeHubItem"),
   v.literal("profile")
 );
 const kind = v.union(v.literal("Like"), v.literal("Star"));
@@ -54,7 +55,7 @@ export const toggleEngagement = mutation({
 
 export async function countEngagement(
   ctx: any,
-  targetType: "discussion" | "libraryItem" | "profile",
+  targetType: "discussion" | "libraryItem" | "knowledgeHubItem" | "profile",
   targetId: string,
   kind: "Like" | "Star"
 ): Promise<number> {
@@ -69,7 +70,7 @@ export async function countEngagement(
 
 export async function isEngagedBy(
   ctx: any,
-  targetType: "discussion" | "libraryItem" | "profile",
+  targetType: "discussion" | "libraryItem" | "knowledgeHubItem" | "profile",
   targetId: string,
   kind: "Like" | "Star",
   userId: string

@@ -63,9 +63,16 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
   const isLong = discussion.details.length > 200;
   const isClosed = discussion.status === "Closed";
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
+  const [starOverride, setStarOverride] = useState<boolean | null>(null);
+  const isStarred = starOverride ?? discussion.isStarred;
 
-  function handleStar() {
-    toggleEngagement({ targetType: "discussion", targetId: discussion._id, kind: "Star" });
+  async function handleStar() {
+    setStarOverride(!discussion.isStarred);
+    try {
+      await toggleEngagement({ targetType: "discussion", targetId: discussion._id, kind: "Star" });
+    } finally {
+      setStarOverride(null);
+    }
   }
 
   async function handleShare() {
@@ -149,9 +156,9 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
         </View>
         <View style={styles.engagementItem}>
           <Ionicons
-            name={discussion.isEndorsed ? "star" : "star-outline"}
+            name={discussion.isEndorsed ? "ribbon" : "ribbon-outline"}
             size={14}
-            color={discussion.isEndorsed ? "#F2650C" : "#666"}
+            color={discussion.isEndorsed ? "#3B82C4" : "#666"}
           />
           <Text style={styles.engagementText}>{discussion.endorseCount}</Text>
         </View>
@@ -168,9 +175,9 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           hitSlop={8}
         >
           <Ionicons
-            name={discussion.isStarred ? "star" : "star-outline"}
+            name={isStarred ? "star" : "star-outline"}
             size={16}
-            color={discussion.isStarred ? "#F2650C" : "#666"}
+            color={isStarred ? "#F2650C" : "#666"}
           />
         </TouchableOpacity>
         <TouchableOpacity
@@ -192,7 +199,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
 }
 
 type StatusFilter = "All" | "Open" | "Closed";
-type SortMode = "recent" | "active" | "liked" | "starred";
+type SortMode = "recent" | "active" | "liked";
 
 export default function DiscussionsFeedScreen() {
   const router = useRouter();
@@ -210,6 +217,7 @@ export default function DiscussionsFeedScreen() {
   const [viewAll, setViewAll] = useState(false);
   const [status, setStatus] = useState<StatusFilter>("All");
   const [sort, setSort] = useState<SortMode>("recent");
+  const [onlyStarred, setOnlyStarred] = useState(false);
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
   useHeaderSearchButton(searchVisible, toggleSearch);
 
@@ -222,6 +230,7 @@ export default function DiscussionsFeedScreen() {
           keyword: search.trim() || undefined,
           categoryIds: selectedCategoryId ? [selectedCategoryId] : undefined,
           status: status === "All" ? undefined : status,
+          onlyStarred: onlyStarred || undefined,
           sort,
         }
       : "skip"
@@ -237,7 +246,7 @@ export default function DiscussionsFeedScreen() {
     [sortedCategories, selectedCategoryId]
   );
 
-  const activeFilterCount = (status !== "All" ? 1 : 0) + (sort !== "recent" ? 1 : 0);
+  const activeFilterCount = (status !== "All" ? 1 : 0) + (sort !== "recent" ? 1 : 0) + (onlyStarred ? 1 : 0);
 
   function handleRefresh() {
     setRefreshing(true);
@@ -413,11 +422,17 @@ export default function DiscussionsFeedScreen() {
               >
                 <Text style={[styles.chipText, sort === "liked" && styles.chipTextActive]}>Most Liked</Text>
               </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Starred</Text>
+            <View style={styles.chipRow}>
               <TouchableOpacity
-                style={[styles.chip, sort === "starred" && styles.chipActive]}
-                onPress={() => setSort("starred")}
+                style={[styles.chip, onlyStarred && styles.chipActive]}
+                onPress={() => setOnlyStarred((v) => !v)}
               >
-                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Starred</Text>
+                <Text style={[styles.chipText, onlyStarred && styles.chipTextActive]}>
+                  {onlyStarred ? "Showing starred only" : "Show starred only"}
+                </Text>
               </TouchableOpacity>
             </View>
 

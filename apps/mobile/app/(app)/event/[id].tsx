@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
@@ -15,6 +16,16 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useState } from "react";
 import * as Calendar from "expo-calendar";
+import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { Ionicons } from "@expo/vector-icons";
+
+type PendingReceipt = {
+  storageId: Id<"_storage">;
+  kind: "image" | "file";
+  fileName?: string;
+};
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,14 +38,77 @@ export default function EventDetailScreen() {
   );
   const rsvp = useMutation(api.events.rsvpEvent);
   const deleteEvent = useMutation(api.events.deleteEvent);
+  const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
 
   const [showRsvpForm, setShowRsvpForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [attending, setAttending] = useState(true);
   const [amount, setAmount] = useState("0");
   const [paidVia, setPaidVia] = useState("");
-  const [guestName, setGuestName] = useState("");
+  const [guestCount, setGuestCount] = useState("0");
+  const [guestNames, setGuestNames] = useState<string[]>([]);
   const [remarks, setRemarks] = useState("");
+  const [receipts, setReceipts] = useState<PendingReceipt[]>([]);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [addingToCalendar, setAddingToCalendar] = useState(false);
+
+  function setGuestCountValue(text: string) {
+    setGuestCount(text);
+    const n = Math.max(0, Math.min(20, Number(text) || 0));
+    setGuestNames((prev) => {
+      const next = prev.slice(0, n);
+      while (next.length < n) next.push("");
+      return next;
+    });
+  }
+
+  async function uploadReceipt(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
+    const uploadUrl = await generateUploadUrl({});
+    const uploadResult = await FileSystem.uploadAsync(uploadUrl, uri, {
+      httpMethod: "POST",
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { "Content-Type": mimeType ?? "application/octet-stream" },
+    });
+    const { storageId } = JSON.parse(uploadResult.body);
+    setReceipts((prev) => [...prev, { storageId, kind, fileName }]);
+  }
+
+  async function handlePickReceiptPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo library access to attach a receipt.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
+    if (result.canceled || !result.assets?.length) return;
+    try {
+      setUploadingReceipt(true);
+      const asset = result.assets[0];
+      await uploadReceipt(asset.uri, asset.mimeType, asset.fileName ?? undefined, "image");
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to upload receipt.");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  }
+
+  async function handlePickReceiptFile() {
+    const result = await DocumentPicker.getDocumentAsync({ multiple: false });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    try {
+      setUploadingReceipt(true);
+      await uploadReceipt(asset.uri, asset.mimeType, asset.name, "file");
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to upload receipt.");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  }
+
+  function removeReceipt(index: number) {
+    setReceipts((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleAddToCalendar() {
     if (!event) return;
@@ -45,14 +119,23 @@ export default function EventDetailScreen() {
         Alert.alert("Permission needed", "Please allow calendar access to save this event.");
         return;
       }
-      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      const defaultCalendar =
-        calendars.find((c) => c.allowsModifications) ?? calendars[0];
-      if (!defaultCalendar) {
+      let calendarId: string | undefined;
+      if (Platform.OS === "ios") {
+        try {
+          calendarId = (await Calendar.getDefaultCalendarAsync()).id;
+        } catch {
+          // No default calendar available; fall back to the search below.
+        }
+      }
+      if (!calendarId) {
+        const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+        calendarId = calendars.find((c) => c.allowsModifications)?.id;
+      }
+      if (!calendarId) {
         Alert.alert("No calendar found", "Couldn't find a calendar to save this event to.");
         return;
       }
-      await Calendar.createEventAsync(defaultCalendar.id, {
+      await Calendar.createEventAsync(calendarId, {
         title: event.title,
         startDate: new Date(event.eventDateStart),
         endDate: new Date(event.eventDateEnd),
@@ -86,13 +169,16 @@ export default function EventDetailScreen() {
       setSubmitting(true);
       await rsvp({
         eventId: id as Id<"events">,
+        attending,
         paidBy: me?.nickName ?? "",
         paidTo: event!.creatorNickName,
         paidVia: event!.noPayment ? "N/A" : paidVia,
         amount: event!.noPayment ? 0 : Number(amount) || 0,
         transactionDate: Date.now(),
-        guestName: guestName || undefined,
+        guestCount: Number(guestCount) || 0,
+        guestNames: guestNames.map((g) => g.trim()).filter((g) => g.length > 0),
         remarks: remarks || undefined,
+        receipts: receipts.length ? receipts : undefined,
       });
       setShowRsvpForm(false);
       Alert.alert("RSVP Confirmed", "You're on the list for this event.");
@@ -121,7 +207,7 @@ export default function EventDetailScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.eventType}>{event.eventType}</Text>
+          <Text style={styles.eventType}>{event.eventTypes?.join(", ")}</Text>
           <Text style={styles.title}>{event.title}</Text>
         </View>
         <TouchableOpacity
@@ -168,6 +254,26 @@ export default function EventDetailScreen() {
         </TouchableOpacity>
       ) : (
         <View style={styles.rsvpForm}>
+          <Text style={styles.label}>Will you be attending?</Text>
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              style={[styles.chip, attending && styles.chipActive]}
+              onPress={() => setAttending(true)}
+            >
+              <Text style={[styles.chipText, attending && styles.chipTextActive]}>
+                Yes, I want to attend
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, !attending && styles.chipActive]}
+              onPress={() => setAttending(false)}
+            >
+              <Text style={[styles.chipText, !attending && styles.chipTextActive]}>
+                No, just registering guests
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {!event.noPayment && (
             <>
               <Text style={styles.label}>Amount</Text>
@@ -179,10 +285,53 @@ export default function EventDetailScreen() {
               />
               <Text style={styles.label}>Payment Method</Text>
               <TextInput style={styles.input} value={paidVia} onChangeText={setPaidVia} placeholder="e.g. Bank Transfer" />
+
+              <Text style={styles.label}>Upload Receipt(s)</Text>
+              <View style={styles.attachRow}>
+                <TouchableOpacity style={styles.attachBtn} onPress={handlePickReceiptPhoto} disabled={uploadingReceipt}>
+                  <Ionicons name="image-outline" size={18} color="#1C1B18" />
+                  <Text style={styles.attachBtnText}>Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.attachBtn} onPress={handlePickReceiptFile} disabled={uploadingReceipt}>
+                  <Ionicons name="document-attach-outline" size={18} color="#1C1B18" />
+                  <Text style={styles.attachBtnText}>File</Text>
+                </TouchableOpacity>
+                {uploadingReceipt && <ActivityIndicator size="small" color="#1C1B18" />}
+              </View>
+              {receipts.length > 0 && (
+                <View style={styles.tagList}>
+                  {receipts.map((r, i) => (
+                    <TouchableOpacity key={i} style={styles.tagChip} onPress={() => removeReceipt(i)}>
+                      <Ionicons name={r.kind === "image" ? "image" : "document"} size={12} color="#1C1B18" />
+                      <Text style={styles.tagChipText} numberOfLines={1}>{r.fileName ?? r.kind}</Text>
+                      <Ionicons name="close" size={12} color="#1C1B18" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </>
           )}
-          <Text style={styles.label}>Guest Name (optional)</Text>
-          <TextInput style={styles.input} value={guestName} onChangeText={setGuestName} />
+
+          <Text style={styles.label}>Number of Guests</Text>
+          <TextInput
+            style={styles.input}
+            value={guestCount}
+            onChangeText={setGuestCountValue}
+            keyboardType="numeric"
+          />
+          {guestNames.map((name, i) => (
+            <View key={i}>
+              <Text style={styles.label}>Guest {i + 1} Name</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={(text) =>
+                  setGuestNames((prev) => prev.map((g, gi) => (gi === i ? text : g)))
+                }
+              />
+            </View>
+          ))}
+
           <Text style={styles.label}>Remarks (optional)</Text>
           <TextInput style={styles.input} value={remarks} onChangeText={setRemarks} />
 
@@ -210,7 +359,15 @@ export default function EventDetailScreen() {
           ) : (
             attendees.map((a) => (
               <View key={a._id} style={styles.attendeeRow}>
-                <Text style={styles.attendeeName}>{a.guestName || a.attendeeNickName}</Text>
+                <View>
+                  <Text style={styles.attendeeName}>
+                    {a.attendeeNickName}
+                    {!a.attending && " (not attending)"}
+                  </Text>
+                  {a.guestNames && a.guestNames.length > 0 && (
+                    <Text style={styles.metaText}>Guests: {a.guestNames.join(", ")}</Text>
+                  )}
+                </View>
                 {!event.noPayment && <Text style={styles.metaText}>{a.paidVia} · {a.amount}</Text>}
               </View>
             ))
@@ -256,6 +413,43 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f5f5f5",
   },
   attendeeName: { fontSize: 14, color: "#1C1B18" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
+  chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  attachRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+  attachBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  attachBtnText: { fontSize: 13, fontWeight: "600", color: "#1C1B18" },
+  tagList: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  tagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#F5EFE0",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    maxWidth: 200,
+  },
+  tagChipText: { fontSize: 12, color: "#1C1B18", fontWeight: "600" },
   eventType: { fontSize: 12, color: "#888", textTransform: "uppercase", marginBottom: 6 },
   title: { fontSize: 22, fontWeight: "800", color: "#1C1B18", marginBottom: 4 },
   hostedBy: { fontSize: 14, color: "#666", marginBottom: 14 },

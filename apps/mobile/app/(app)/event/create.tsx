@@ -52,7 +52,7 @@ export default function CreateEventScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const [title, setTitle] = useState("");
-  const [eventType, setEventType] = useState("");
+  const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [customEventType, setCustomEventType] = useState("");
   const [details, setDetails] = useState("");
   const [eventLink, setEventLink] = useState("");
@@ -76,6 +76,10 @@ export default function CreateEventScreen() {
 
   function toggleHost(id: Id<"profiles">) {
     setHostIds((prev) => (prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]));
+  }
+
+  function toggleEventType(t: string) {
+    setEventTypes((prev) => (prev.includes(t) ? prev.filter((et) => et !== t) : [...prev, t]));
   }
 
   async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
@@ -133,9 +137,11 @@ export default function CreateEventScreen() {
   }
 
   async function handleCreate() {
-    const resolvedEventType = eventType === "Other" ? customEventType.trim() : eventType;
-    if (!title.trim() || !resolvedEventType || !details.trim()) {
-      Alert.alert("Missing info", "Please fill in title, event type, and details.");
+    const resolvedEventTypes = eventTypes
+      .map((t) => (t === "Other" ? customEventType.trim() : t))
+      .filter((t) => t.length > 0);
+    if (!title.trim() || !resolvedEventTypes.length || !details.trim()) {
+      Alert.alert("Missing info", "Please fill in title, at least one event type, and details.");
       return;
     }
     const start = parseDateTime(startDate, startTime);
@@ -153,7 +159,7 @@ export default function CreateEventScreen() {
       setSubmitting(true);
       const eventId = await createEvent({
         title: title.trim(),
-        eventType: resolvedEventType,
+        eventTypes: resolvedEventTypes,
         details: details.trim(),
         eventLink: eventLink.trim() || undefined,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
@@ -190,19 +196,19 @@ export default function CreateEventScreen() {
         <Text style={styles.label}>Title</Text>
         <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="e.g. Dynamic Stretching" placeholderTextColor="#aaa" />
 
-        <Text style={styles.label}>Event Type</Text>
+        <Text style={styles.label}>Event Type (select all that apply)</Text>
         <View style={styles.chipRow}>
           {EVENT_TYPES.map((t) => (
             <TouchableOpacity
               key={t}
-              style={[styles.chip, eventType === t && styles.chipActive]}
-              onPress={() => setEventType(t)}
+              style={[styles.chip, eventTypes.includes(t) && styles.chipActive]}
+              onPress={() => toggleEventType(t)}
             >
-              <Text style={[styles.chipText, eventType === t && styles.chipTextActive]}>{t}</Text>
+              <Text style={[styles.chipText, eventTypes.includes(t) && styles.chipTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        {eventType === "Other" && (
+        {eventTypes.includes("Other") && (
           <TextInput
             style={[styles.input, { marginTop: 8 }]}
             value={customEventType}

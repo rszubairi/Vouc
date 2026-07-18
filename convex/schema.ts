@@ -259,7 +259,7 @@ export default defineSchema(
 
     events: defineTable({
       userId: v.id("profiles"),
-      eventType: v.string(),
+      eventTypes: v.array(v.string()),
       title: v.string(),
       details: v.string(),
       speaker: v.optional(v.string()),
@@ -324,7 +324,9 @@ export default defineSchema(
     eventAttendances: defineTable({
       eventId: v.id("events"),
       userId: v.id("profiles"),
-      guestName: v.optional(v.string()),
+      attending: v.boolean(),
+      guestCount: v.optional(v.number()),
+      guestNames: v.optional(v.array(v.string())),
       paidBy: v.string(),
       paidTo: v.string(),
       paidVia: v.string(),
@@ -396,7 +398,20 @@ export default defineSchema(
       userId: v.id("profiles"),
       type: v.union(v.literal("Like"), v.literal("Endorse"), v.literal("Comment")),
       comment: v.optional(v.string()),
+      commentDate: v.optional(v.number()),
     }).index("by_libraryItemId", ["libraryItemId"]),
+
+    libraryCommentImages: defineTable({
+      commentId: v.id("libraryItemMetas"),
+      imageId: v.id("images"),
+      order: v.number(),
+    }).index("by_commentId", ["commentId"]),
+
+    libraryCommentFiles: defineTable({
+      commentId: v.id("libraryItemMetas"),
+      documentId: v.id("documents"),
+      order: v.number(),
+    }).index("by_commentId", ["commentId"]),
 
     libraryVisibilities: defineTable({
       libraryItemId: v.id("libraryItems"),
@@ -479,6 +494,16 @@ export default defineSchema(
       .index("by_knowledgeHubItemId", ["knowledgeHubItemId"])
       .index("by_userId", ["userId"])
       .index("by_knowledgeHubItemId_userId", ["knowledgeHubItemId", "userId"]),
+
+    knowledgeHubLanguages: defineTable({
+      knowledgeHubItemId: v.id("knowledgeHubItems"),
+      language: v.string(),
+    }).index("by_knowledgeHubItemId", ["knowledgeHubItemId"]),
+
+    knowledgeHubMarkets: defineTable({
+      knowledgeHubItemId: v.id("knowledgeHubItems"),
+      market: v.string(),
+    }).index("by_knowledgeHubItemId", ["knowledgeHubItemId"]),
 
     // ─── Products / Divisions ─────────────────────────────────────────────────
 

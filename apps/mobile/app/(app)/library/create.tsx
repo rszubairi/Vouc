@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Switch,
+  Modal,
+  FlatList,
 } from "react-native";
 import { useLayoutEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -19,6 +22,61 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
+import { Calendar } from "react-native-calendars";
+import { IANA_TIMEZONES } from "../../../constants/timezones";
+import { LANGUAGES } from "../../../constants/languages";
+import { MARKETS } from "../../../constants/markets";
+
+const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+// Hermes doesn't reliably support Intl.supportedValuesOf, so fall back to
+// the bundled IANA list — merging in the device zone in case it's not
+// already present in the curated list.
+const TIMEZONES: string[] =
+  typeof (Intl as any).supportedValuesOf === "function" &&
+  (Intl as any).supportedValuesOf("timeZone").length > 1
+    ? (Intl as any).supportedValuesOf("timeZone")
+    : Array.from(new Set([DEVICE_TIMEZONE, ...IANA_TIMEZONES]));
+
+// Returns the UTC offset (ms) that `timeZone` observes at `atUtcMs`, i.e. how
+// far local wall-clock time in that zone is ahead of UTC at that instant.
+function getTimeZoneOffsetMs(timeZone: string, atUtcMs: number): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = dtf.formatToParts(new Date(atUtcMs));
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+  const asIfUTC = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour),
+    Number(map.minute),
+    Number(map.second)
+  );
+  return asIfUTC - atUtcMs;
+}
+
+// Converts a wall-clock date/time as observed in `timeZone` into the
+// corresponding UTC instant (ms). Using the device's local timezone here
+// (as `new Date(...)` would) silently mis-schedules posts whenever the
+// selected timezone differs from the device's.
+function parseScheduledDateTime(dateStr: string, timeStr: string, timeZone: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(timeStr)) return null;
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  const naiveUtcMs = Date.UTC(y, mo - 1, d, h, mi, 0);
+  if (Number.isNaN(naiveUtcMs)) return null;
+  const offset = getTimeZoneOffsetMs(timeZone, naiveUtcMs);
+  return naiveUtcMs - offset;
+}
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -56,8 +114,18 @@ export default function CreateLibraryItemScreen() {
     paramCategoryId ? (paramCategoryId as Id<"categories">) : null
   );
   const [nonChinaVideoLink, setNonChinaVideoLink] = useState("");
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [markets, setMarkets] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState(""); // "YYYY-MM-DD"
+  const [scheduleTime, setScheduleTime] = useState(""); // "HH:MM"
+  const [timezone, setTimezone] = useState(DEVICE_TIMEZONE);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [zonePickerVisible, setZonePickerVisible] = useState(false);
+  const [zoneSearch, setZoneSearch] = useState("");
 
   async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
     const uploadUrl = await generateUploadUrl({});
@@ -96,12 +164,13 @@ export default function CreateLibraryItemScreen() {
   }
 
   async function handlePickFile() {
-    const result = await DocumentPicker.getDocumentAsync({ multiple: false });
-    if (result.canceled || !result.assets?.[0]) return;
-    const asset = result.assets[0];
+    const result = await DocumentPicker.getDocumentAsync({ multiple: true });
+    if (result.canceled || !result.assets?.length) return;
     try {
       setUploading(true);
-      await uploadAsset(asset.uri, asset.mimeType, asset.name, "file");
+      for (const asset of result.assets) {
+        await uploadAsset(asset.uri, asset.mimeType, asset.name, "file");
+      }
     } catch (e: any) {
       Alert.alert("Error", e.message ?? "Failed to upload file.");
     } finally {
@@ -113,10 +182,42 @@ export default function CreateLibraryItemScreen() {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function toggleLanguage(language: string) {
+    setLanguages((prev) =>
+      prev.includes(language) ? prev.filter((l) => l !== language) : [...prev, language]
+    );
+  }
+
+  function toggleMarket(market: string) {
+    setMarkets((prev) => (prev.includes(market) ? prev.filter((m) => m !== market) : [...prev, market]));
+  }
+
   async function handleCreate() {
     if (!subject.trim() || !details.trim()) {
       Alert.alert("Missing info", "Please fill in subject and details.");
       return;
+    }
+    if (languages.length === 0) {
+      Alert.alert("Missing info", "Please select at least one language to target.");
+      return;
+    }
+    if (markets.length === 0) {
+      Alert.alert("Missing info", "Please select at least one market to target.");
+      return;
+    }
+
+    let postDate: number | undefined;
+    if (isDirectory && isScheduled) {
+      const ms = parseScheduledDateTime(scheduleDate, scheduleTime, timezone);
+      if (ms === null) {
+        Alert.alert("Invalid schedule", "Please pick a valid date and time.");
+        return;
+      }
+      if (ms <= Date.now()) {
+        Alert.alert("Invalid schedule", "Scheduled time must be in the future.");
+        return;
+      }
+      postDate = ms;
     }
 
     try {
@@ -125,6 +226,8 @@ export default function CreateLibraryItemScreen() {
         title: subject.trim(),
         description: details.trim(),
         categoryIds: categoryId ? [categoryId] : undefined,
+        languages,
+        markets,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
         allowRetweet: true,
@@ -135,7 +238,11 @@ export default function CreateLibraryItemScreen() {
         toCustom: false,
       };
       const itemId = isDirectory
-        ? await createLibraryItem(commonArgs)
+        ? await createLibraryItem({
+            ...commonArgs,
+            postDate,
+            selectedZone: isScheduled ? timezone : undefined,
+          })
         : await createKnowledgeHubItem(commonArgs);
       router.replace(
         isDirectory ? `/(app)/directory/item/${itemId}` : `/(app)/library/${itemId}`
@@ -192,6 +299,36 @@ export default function CreateLibraryItemScreen() {
           </>
         )}
 
+        <Text style={styles.label}>Language *</Text>
+        <View style={styles.tagList}>
+          {LANGUAGES.map((language) => (
+            <TouchableOpacity
+              key={language}
+              style={[styles.chip, languages.includes(language) && styles.chipActive]}
+              onPress={() => toggleLanguage(language)}
+            >
+              <Text style={[styles.chipText, languages.includes(language) && styles.chipTextActive]}>
+                {language}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Market *</Text>
+        <View style={styles.tagList}>
+          {MARKETS.map((market) => (
+            <TouchableOpacity
+              key={market}
+              style={[styles.chip, markets.includes(market) && styles.chipActive]}
+              onPress={() => toggleMarket(market)}
+            >
+              <Text style={[styles.chipText, markets.includes(market) && styles.chipTextActive]}>
+                {market}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <Text style={styles.label}>Video Link (optional)</Text>
         <TextInput
           style={styles.input}
@@ -226,13 +363,113 @@ export default function CreateLibraryItemScreen() {
           </View>
         )}
 
+        {isDirectory && (
+          <>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>Schedule Post</Text>
+              <Switch value={isScheduled} onValueChange={setIsScheduled} trackColor={{ true: "#1C1B18" }} />
+            </View>
+
+            {isScheduled && (
+              <View style={styles.scheduleBox}>
+                <Text style={styles.label}>Date</Text>
+                <TouchableOpacity style={styles.input} onPress={() => setDatePickerVisible(true)}>
+                  <Text style={scheduleDate ? styles.scheduleValue : styles.schedulePlaceholder}>
+                    {scheduleDate || "Select a date"}
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={styles.label}>Time</Text>
+                <TextInput
+                  style={styles.input}
+                  value={scheduleTime}
+                  onChangeText={setScheduleTime}
+                  placeholder="HH:MM (24-hour)"
+                  placeholderTextColor="#aaa"
+                  keyboardType="numbers-and-punctuation"
+                />
+
+                <Text style={styles.label}>Timezone</Text>
+                <TouchableOpacity style={styles.input} onPress={() => setZonePickerVisible(true)}>
+                  <Text style={styles.scheduleValue}>{timezone}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
+
         <TouchableOpacity style={styles.submitBtn} onPress={handleCreate} disabled={submitting || uploading}>
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitText}>Create Item</Text>
+            <Text style={styles.submitText}>{isScheduled ? "Schedule Post" : "Create Item"}</Text>
           )}
         </TouchableOpacity>
+
+        <Modal visible={datePickerVisible} animationType="slide" transparent onRequestClose={() => setDatePickerVisible(false)}>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDatePickerVisible(false)}>
+            <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Select Date</Text>
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDatePickerVisible(false)} hitSlop={8}>
+                  <Ionicons name="close" size={20} color="#1C1B18" />
+                </TouchableOpacity>
+              </View>
+              <Calendar
+                minDate={new Date().toISOString().split("T")[0]}
+                onDayPress={(day: { dateString: string }) => {
+                  setScheduleDate(day.dateString);
+                  setDatePickerVisible(false);
+                }}
+                markedDates={scheduleDate ? { [scheduleDate]: { selected: true, selectedColor: "#1C1B18" } } : {}}
+                theme={{
+                  todayTextColor: "#1C1B18",
+                  selectedDayBackgroundColor: "#1C1B18",
+                  arrowColor: "#1C1B18",
+                }}
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        <Modal visible={zonePickerVisible} animationType="slide" transparent onRequestClose={() => setZonePickerVisible(false)}>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setZonePickerVisible(false)}>
+            <TouchableOpacity style={[styles.modalSheet, styles.zoneModalSheet]} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Select Timezone</Text>
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setZonePickerVisible(false)} hitSlop={8}>
+                  <Ionicons name="close" size={20} color="#1C1B18" />
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.input}
+                value={zoneSearch}
+                onChangeText={setZoneSearch}
+                placeholder="Search timezone"
+                placeholderTextColor="#aaa"
+                autoCapitalize="none"
+              />
+              <FlatList
+                data={TIMEZONES.filter((z) => z.toLowerCase().includes(zoneSearch.trim().toLowerCase()))}
+                keyExtractor={(z) => z}
+                style={styles.zoneList}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.zoneRow}
+                    onPress={() => {
+                      setTimezone(item);
+                      setZonePickerVisible(false);
+                      setZoneSearch("");
+                    }}
+                  >
+                    <Text style={styles.zoneRowText}>{item}</Text>
+                    {item === timezone && <Ionicons name="checkmark" size={18} color="#F2650C" />}
+                  </TouchableOpacity>
+                )}
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -299,4 +536,51 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   submitText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  toggleLabel: { fontSize: 15, color: "#1C1B18" },
+  scheduleBox: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    gap: 4,
+  },
+  scheduleValue: { fontSize: 15, color: "#1C1B18" },
+  schedulePlaceholder: { fontSize: 15, color: "#aaa" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
+  zoneModalSheet: { height: "80%" },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#1C1B18" },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FAF5EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  zoneList: { marginTop: 12 },
+  zoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  zoneRowText: { fontSize: 14, color: "#1C1B18" },
 });

@@ -157,6 +157,12 @@ export default function NetworkScreen() {
             <Text style={styles.subText}>{item.city}, {item.country}</Text>
             <Text style={styles.memberSince}>Member since {formatMemberSince(item._creationTime)}</Text>
           </View>
+          <View style={styles.vouchedByCol}>
+            <Text style={styles.vouchedByLabel}>Vouched By</Text>
+            <Text style={styles.vouchedByValue} numberOfLines={1}>
+              {item.sponsorName ?? "—"}
+            </Text>
+          </View>
         </TouchableOpacity>
       )}
       ListEmptyComponent={
@@ -253,6 +259,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarInitial: { color: "#F2650C", fontSize: 18, fontWeight: "700" },
+  vouchedByCol: { alignItems: "flex-end", marginLeft: 8, maxWidth: 100 },
+  vouchedByLabel: { fontSize: 10, color: "#888", fontWeight: "600", marginBottom: 2, textTransform: "uppercase" },
+  vouchedByValue: { fontSize: 13, color: "#1C1B18", fontWeight: "700" },
   name: { fontSize: 15, fontWeight: "700", color: "#1C1B18" },
   subText: { fontSize: 12, color: "#888", marginTop: 2 },
   memberSince: { fontSize: 11, color: "#F2650C", marginTop: 2, fontWeight: "600" },

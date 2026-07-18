@@ -79,15 +79,30 @@ function ImageCarousel({ images }: { images: string[] }) {
   );
 }
 
-function FileAttachments({ files }: { files: Array<{ url: string; name?: string }> }) {
+function FileAttachments({
+  files,
+  canRename,
+  onRename,
+}: {
+  files: Array<{ url: string; name?: string; documentId?: string }>;
+  canRename?: boolean;
+  onRename?: (documentId: string, currentName?: string) => void;
+}) {
   if (files.length === 0) return null;
   return (
     <View style={styles.filesSection}>
       {files.map((f, i) => (
-        <TouchableOpacity key={i} style={styles.fileRow} onPress={() => RNLinking.openURL(f.url)}>
-          <Ionicons name="document-outline" size={16} color="#1C1B18" />
-          <Text style={styles.fileName} numberOfLines={1}>{f.name ?? "Attachment"}</Text>
-        </TouchableOpacity>
+        <View key={i} style={styles.fileRow}>
+          <TouchableOpacity style={styles.fileRowTouch} onPress={() => RNLinking.openURL(f.url)}>
+            <Ionicons name="document-outline" size={16} color="#1C1B18" />
+            <Text style={styles.fileName} numberOfLines={1}>{f.name ?? "Attachment"}</Text>
+          </TouchableOpacity>
+          {canRename && f.documentId && (
+            <TouchableOpacity hitSlop={8} onPress={() => onRename?.(f.documentId!, f.name)}>
+              <Ionicons name="pencil-outline" size={15} color="#888" />
+            </TouchableOpacity>
+          )}
+        </View>
       ))}
     </View>
   );
@@ -105,12 +120,21 @@ export default function DiscussionDetailScreen() {
   const addReply = useMutation(api.discussions.addReply);
   const toggleFollow = useMutation(api.discussions.toggleFollow);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
+  const renameAttachment = useMutation(api.discussions.renameAttachment);
   const scrollRef = useRef<ScrollView>(null);
 
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  // Local overrides so like/endorse/star buttons flip color instantly
+  // instead of waiting on the round trip + query re-subscription.
+  const [likeOverride, setLikeOverride] = useState<boolean | null>(null);
+  const [endorseOverride, setEndorseOverride] = useState<boolean | null>(null);
+  const [starOverride, setStarOverride] = useState<boolean | null>(null);
 
   if (discussion === undefined) {
     return <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />;
@@ -124,19 +148,56 @@ export default function DiscussionDetailScreen() {
   }
 
   async function handleLike() {
-    await engage({ discussionId: id as Id<"discussions">, type: "Like" });
+    setLikeOverride(!discussion!.isLiked);
+    try {
+      await engage({ discussionId: id as Id<"discussions">, type: "Like" });
+    } finally {
+      setLikeOverride(null);
+    }
   }
 
   async function handleEndorse() {
-    await engage({ discussionId: id as Id<"discussions">, type: "Endorse" });
+    setEndorseOverride(!discussion!.isEndorsed);
+    try {
+      await engage({ discussionId: id as Id<"discussions">, type: "Endorse" });
+    } finally {
+      setEndorseOverride(null);
+    }
   }
 
   async function handleStar() {
-    await toggleEngagement({
-      targetType: "discussion",
-      targetId: id as string,
-      kind: "Star",
-    });
+    setStarOverride(!discussion!.isStarred);
+    try {
+      await toggleEngagement({
+        targetType: "discussion",
+        targetId: id as string,
+        kind: "Star",
+      });
+    } finally {
+      setStarOverride(null);
+    }
+  }
+
+  function handleRenameAttachment(documentId: string, currentName?: string) {
+    setRenamingDocId(documentId);
+    setRenameValue(currentName ?? "");
+  }
+
+  async function confirmRenameAttachment() {
+    if (!renamingDocId) return;
+    const name = renameValue.trim();
+    if (!name) {
+      setRenamingDocId(null);
+      return;
+    }
+    try {
+      await renameAttachment({ documentId: renamingDocId as Id<"documents">, name });
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to rename attachment.");
+    } finally {
+      setRenamingDocId(null);
+      setRenameValue("");
+    }
   }
 
   async function handleToggleFollow() {
@@ -181,7 +242,10 @@ export default function DiscussionDetailScreen() {
   }
 
   async function handleComment() {
-    if (!comment.trim()) return;
+    if (!comment.trim()) {
+      Alert.alert("Comment required", "Please enter a comment before sending.");
+      return;
+    }
     try {
       setSubmitting(true);
       await addReply({
@@ -316,7 +380,11 @@ export default function DiscussionDetailScreen() {
 
       {/* Images */}
       <ImageCarousel images={discussion.images} />
-      <FileAttachments files={discussion.attachments.filter((a: any) => a.kind === "file")} />
+      <FileAttachments
+        files={discussion.attachments.filter((a: any) => a.kind === "file")}
+        canRename={discussion.isOwner}
+        onRename={handleRenameAttachment}
+      />
 
       {/* Video links */}
       {discussion.nonChinaVideoLink && (
@@ -327,51 +395,43 @@ export default function DiscussionDetailScreen() {
       )}
 
       {/* Engagement */}
-      <View style={styles.engagementBar}>
-        <TouchableOpacity
-          style={[styles.engBtn, discussion.isLiked && styles.engBtnActive]}
-          onPress={handleLike}
-        >
-          <Ionicons
-            name={discussion.isLiked ? "thumbs-up" : "thumbs-up-outline"}
-            size={16}
-            color={discussion.isLiked ? "#F2650C" : "#333"}
-          />
-          <Text style={[styles.engBtnText, discussion.isLiked && styles.engBtnTextActive]}>
-            {discussion.likeCount}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.engBtn, discussion.isEndorsed && styles.engBtnActive]}
-          onPress={handleEndorse}
-        >
-          <Ionicons
-            name={discussion.isEndorsed ? "star" : "star-outline"}
-            size={16}
-            color={discussion.isEndorsed ? "#F2650C" : "#333"}
-          />
-          <Text style={[styles.engBtnText, discussion.isEndorsed && styles.engBtnTextActive]}>
-            {discussion.endorseCount}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.engBtn}>
-          <Ionicons name="chatbubble-outline" size={16} color="#333" />
-          <Text style={styles.engBtnText}>{discussion.replies.length}</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.engBtn, discussion.isStarred && styles.engBtnActive]}
-          onPress={handleStar}
-        >
-          <Ionicons
-            name={discussion.isStarred ? "star" : "star-outline"}
-            size={16}
-            color={discussion.isStarred ? "#F2650C" : "#333"}
-          />
-          <Text style={[styles.engBtnText, discussion.isStarred && styles.engBtnTextActive]}>
-            {discussion.starCount}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {(() => {
+        const isLiked = likeOverride ?? discussion.isLiked;
+        const isEndorsed = endorseOverride ?? discussion.isEndorsed;
+        const isStarred = starOverride ?? discussion.isStarred;
+        return (
+          <View style={styles.engagementBar}>
+            <TouchableOpacity style={[styles.engBtn, isLiked && styles.engBtnActive]} onPress={handleLike}>
+              <Ionicons
+                name={isLiked ? "thumbs-up" : "thumbs-up-outline"}
+                size={16}
+                color={isLiked ? "#F2650C" : "#333"}
+              />
+              <Text style={[styles.engBtnText, isLiked && styles.engBtnTextActive]}>{discussion.likeCount}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.engBtn, isEndorsed && styles.engBtnActive]} onPress={handleEndorse}>
+              <Ionicons
+                name={isEndorsed ? "ribbon" : "ribbon-outline"}
+                size={16}
+                color={isEndorsed ? "#3B82C4" : "#333"}
+              />
+              <Text style={[styles.engBtnText, isEndorsed && styles.engBtnTextActive]}>{discussion.endorseCount}</Text>
+            </TouchableOpacity>
+            <View style={styles.engBtn}>
+              <Ionicons name="chatbubble-outline" size={16} color="#333" />
+              <Text style={styles.engBtnText}>{discussion.replies.length}</Text>
+            </View>
+            <TouchableOpacity style={[styles.engBtn, isStarred && styles.engBtnActive]} onPress={handleStar}>
+              <Ionicons
+                name={isStarred ? "star" : "star-outline"}
+                size={16}
+                color={isStarred ? "#F2650C" : "#333"}
+              />
+              <Text style={[styles.engBtnText, isStarred && styles.engBtnTextActive]}>{discussion.starCount}</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })()}
 
       {discussion.isOwner && !isClosed && (
         <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
@@ -450,6 +510,29 @@ export default function DiscussionDetailScreen() {
         </>
       )}
     </ScrollView>
+    {renamingDocId !== null && (
+      <View style={styles.renameOverlay}>
+        <View style={styles.renameSheet}>
+          <Text style={styles.modalTitle}>Rename Attachment</Text>
+          <TextInput
+            style={styles.renameInput}
+            value={renameValue}
+            onChangeText={setRenameValue}
+            placeholder="File name"
+            placeholderTextColor="#aaa"
+            autoFocus
+          />
+          <View style={styles.renameActions}>
+            <TouchableOpacity style={styles.renameCancelBtn} onPress={() => setRenamingDocId(null)}>
+              <Text style={styles.renameCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.renameSaveBtn} onPress={confirmRenameAttachment}>
+              <Text style={styles.renameSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    )}
     </KeyboardAvoidingView>
   );
 }
@@ -527,6 +610,7 @@ const styles = StyleSheet.create({
   dotActive: { backgroundColor: "#F2650C", width: 8, height: 8, borderRadius: 4 },
   filesSection: { marginBottom: 12, gap: 8 },
   fileRow: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#FAF5EA", borderRadius: 8, padding: 10 },
+  fileRowTouch: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
   fileName: { fontSize: 13, color: "#1C1B18", flex: 1 },
   videoLink: { flexDirection: "row", marginBottom: 12 },
   videoLabel: { fontSize: 14, fontWeight: "600", color: "#555" },
@@ -598,4 +682,28 @@ const styles = StyleSheet.create({
   replyAttachCount: { fontSize: 12, color: "#888" },
   closedNotice: { backgroundColor: "#f5f5f5", borderRadius: 10, padding: 14, alignItems: "center", marginTop: 10 },
   closedNoticeText: { fontSize: 13, color: "#888", fontWeight: "600" },
+  renameOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  renameSheet: { backgroundColor: "#fff", borderRadius: 14, padding: 20, width: "100%" },
+  modalTitle: { fontSize: 16, fontWeight: "700", color: "#1C1B18", marginBottom: 12 },
+  renameInput: {
+    backgroundColor: "#FAF5EA",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#1C1B18",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  renameActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 16 },
+  renameCancelBtn: { paddingHorizontal: 14, paddingVertical: 10 },
+  renameCancelText: { color: "#888", fontWeight: "600" },
+  renameSaveBtn: { backgroundColor: "#1C1B18", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10 },
+  renameSaveText: { color: "#fff", fontWeight: "700" },
 });

@@ -24,6 +24,28 @@ function isKnowledgeHubScoped(c: { scope?: string }) {
   return c.scope === "knowledgeHub";
 }
 
+function matchesPreference(callerPrefs: string[], itemValues: string[]) {
+  if (callerPrefs.length === 0) return true;
+  if (itemValues.length === 0) return true;
+  return itemValues.some((v) => callerPrefs.includes(v));
+}
+
+async function languagesFor(ctx: any, knowledgeHubItemId: Id<"knowledgeHubItems">) {
+  const rows = await ctx.db
+    .query("knowledgeHubLanguages")
+    .withIndex("by_knowledgeHubItemId", (q: any) => q.eq("knowledgeHubItemId", knowledgeHubItemId))
+    .collect();
+  return rows.map((r: any) => r.language);
+}
+
+async function marketsFor(ctx: any, knowledgeHubItemId: Id<"knowledgeHubItems">) {
+  const rows = await ctx.db
+    .query("knowledgeHubMarkets")
+    .withIndex("by_knowledgeHubItemId", (q: any) => q.eq("knowledgeHubItemId", knowledgeHubItemId))
+    .collect();
+  return rows.map((r: any) => r.market);
+}
+
 export const listItems = query({
   args: {
     categoryId: v.optional(v.id("categories")),
@@ -41,6 +63,19 @@ export const listItems = query({
       .withIndex("by_userId", (q) => q.eq("userId", authUserId))
       .first();
     if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
+
+    const callerLanguages = (
+      await ctx.db
+        .query("profileLanguages")
+        .withIndex("by_profileId", (q) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r) => r.language);
+    const callerMarkets = (
+      await ctx.db
+        .query("profileMarkets")
+        .withIndex("by_profileId", (q) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r) => r.market);
 
     let itemIds: Set<Id<"knowledgeHubItems">>;
     if (callerProfile.fullAccess) {
@@ -69,6 +104,10 @@ export const listItems = query({
       const item = await ctx.db.get(itemId);
       if (!item || item.isDeleted) continue;
       if (categoryId && !item.categoryIds.includes(categoryId)) continue;
+      const itemLanguages = await languagesFor(ctx, item._id);
+      const itemMarkets = await marketsFor(ctx, item._id);
+      if (!matchesPreference(callerLanguages, itemLanguages)) continue;
+      if (!matchesPreference(callerMarkets, itemMarkets)) continue;
 
       const creator = await ctx.db.get(item.userId);
       const creatorImage = creator
@@ -91,6 +130,8 @@ export const listItems = query({
         ...item,
         creatorNickName: creator?.nickName ?? "",
         creatorProfileImageUrl,
+        languages: itemLanguages,
+        markets: itemMarkets,
         likeCount,
         starCount,
         isLiked,
@@ -169,6 +210,8 @@ export const getItem = query({
       creatorNickName: creator?.nickName ?? "",
       creatorProfileImageUrl,
       categoryNames: categories.map((c) => c.name),
+      languages: await languagesFor(ctx, itemId),
+      markets: await marketsFor(ctx, itemId),
       images: imageUrls,
       documents: docList,
       likeCount: await countEngagement(ctx, "knowledgeHubItem", itemId, "Like"),
@@ -196,6 +239,8 @@ export const createItem = mutation({
     title: v.string(),
     description: v.string(),
     categoryIds: v.optional(v.array(v.id("categories"))),
+    languages: v.array(v.string()),
+    markets: v.array(v.string()),
     nonChinaVideoLink: v.optional(v.string()),
     allowRetweet: v.boolean(),
     mustRead: v.boolean(),
@@ -211,6 +256,9 @@ export const createItem = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await getCallerProfile(ctx);
+
+    if (args.languages.length === 0) throw new Error("Select at least one language to target.");
+    if (args.markets.length === 0) throw new Error("Select at least one market to target.");
 
     for (const categoryId of args.categoryIds ?? []) {
       const category = await ctx.db.get(categoryId);
@@ -238,6 +286,13 @@ export const createItem = mutation({
       maxLevel: args.maxLevel,
       minRank: args.minRank,
     });
+
+    for (const language of args.languages) {
+      await ctx.db.insert("knowledgeHubLanguages", { knowledgeHubItemId: itemId, language });
+    }
+    for (const market of args.markets) {
+      await ctx.db.insert("knowledgeHubMarkets", { knowledgeHubItemId: itemId, market });
+    }
 
     let imageOrder = 0;
     for (const a of args.attachments ?? []) {

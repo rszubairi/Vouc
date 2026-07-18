@@ -126,6 +126,10 @@ export default function DirectoryCategoryScreen() {
                   />
                   <Text style={styles.engagementText}>{item.starCount}</Text>
                 </TouchableOpacity>
+                <View style={styles.engagementItem}>
+                  <Ionicons name="chatbubble-outline" size={14} color="#666" />
+                  <Text style={styles.engagementText}>{item.commentCount}</Text>
+                </View>
               </View>
             </TouchableOpacity>
           )}

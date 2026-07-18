@@ -57,9 +57,12 @@ export default function HierarchyPage() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
+    const selectedNames = (nodes ?? [])
+      .filter((n) => selectedIds.has(n._id))
+      .map((n) => n.nickName);
     if (
       !confirm(
-        `Delete ${selectedIds.size} selected profile${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`
+        `Delete ${selectedIds.size} selected profile${selectedIds.size === 1 ? "" : "s"}?\n\n${selectedNames.join("\n")}\n\nThis cannot be undone.`
       )
     )
       return;
@@ -67,6 +70,8 @@ export default function HierarchyPage() {
     try {
       await bulkDelete({ profileIds: Array.from(selectedIds) as Id<"profiles">[] });
       setSelectedIds(new Set());
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete selected profiles.");
     } finally {
       setIsDeleting(false);
     }

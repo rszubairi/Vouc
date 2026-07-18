@@ -120,14 +120,20 @@ async function attachmentsFor(ctx: any, discussionId: Id<"discussions">) {
     .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
     .collect();
 
-  const attachments: Array<{ kind: "image" | "file"; url: string; name?: string; order: number }> = [];
+  const attachments: Array<{
+    kind: "image" | "file";
+    url: string;
+    name?: string;
+    documentId?: Id<"documents">;
+    order: number;
+  }> = [];
   for (const row of imageRows) {
     const img = await ctx.db.get(row.imageId);
     if (img) attachments.push({ kind: "image", url: img.url, order: row.order });
   }
   for (const row of fileRows) {
     const doc = await ctx.db.get(row.documentId);
-    if (doc) attachments.push({ kind: "file", url: doc.url, name: doc.name, order: row.order });
+    if (doc) attachments.push({ kind: "file", url: doc.url, name: doc.name, documentId: doc._id, order: row.order });
   }
   attachments.sort((a, b) => a.order - b.order);
   return attachments;
@@ -139,6 +145,32 @@ async function tagsFor(ctx: any, discussionId: Id<"discussions">) {
     .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
     .collect();
   return rows.map((r: any) => r.tag);
+}
+
+async function languagesFor(ctx: any, discussionId: Id<"discussions">) {
+  const rows = await ctx.db
+    .query("discussionLanguages")
+    .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
+    .collect();
+  return rows.map((r: any) => r.language);
+}
+
+async function marketsFor(ctx: any, discussionId: Id<"discussions">) {
+  const rows = await ctx.db
+    .query("discussionMarkets")
+    .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
+    .collect();
+  return rows.map((r: any) => r.market);
+}
+
+// A caller with no language/market preference (empty array = "follow ALL")
+// sees everything. Otherwise an item is visible if it has no targeting rows
+// (legacy items predating this feature) or shares at least one value with
+// the caller's preference.
+function matchesPreference(callerPrefs: string[], itemValues: string[]) {
+  if (callerPrefs.length === 0) return true;
+  if (itemValues.length === 0) return true;
+  return itemValues.some((v) => callerPrefs.includes(v));
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -153,12 +185,13 @@ export const list = query({
     status: v.optional(v.union(v.literal("Open"), v.literal("Closed"))),
     dateFrom: v.optional(v.number()),
     dateTo: v.optional(v.number()),
+    onlyStarred: v.optional(v.boolean()),
     sort: v.optional(
       v.union(v.literal("recent"), v.literal("active"), v.literal("liked"), v.literal("starred"))
     ),
   },
   handler: async (ctx, args) => {
-    const { limit = 30, keyword, categoryIds, authorId, status, dateFrom, dateTo, sort = "recent" } = args;
+    const { limit = 30, keyword, categoryIds, authorId, status, dateFrom, dateTo, onlyStarred, sort = "recent" } = args;
 
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return [];
@@ -168,6 +201,19 @@ export const list = query({
       .withIndex("by_userId", (q: any) => q.eq("userId", authUserId))
       .first();
     if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
+
+    const callerLanguages = (
+      await ctx.db
+        .query("profileLanguages")
+        .withIndex("by_profileId", (q: any) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r: any) => r.language);
+    const callerMarkets = (
+      await ctx.db
+        .query("profileMarkets")
+        .withIndex("by_profileId", (q: any) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r: any) => r.market);
 
     let allIds: Set<Id<"discussions">>;
     let visibilities: Array<{ discussionId: Id<"discussions">; isRead: boolean }>;
@@ -210,6 +256,10 @@ export const list = query({
       if (status && d.status !== status) continue;
       if (dateFrom !== undefined && d.postDate < dateFrom) continue;
       if (dateTo !== undefined && d.postDate > dateTo) continue;
+      const itemLanguages = await languagesFor(ctx, d._id);
+      const itemMarkets = await marketsFor(ctx, d._id);
+      if (!matchesPreference(callerLanguages, itemLanguages)) continue;
+      if (!matchesPreference(callerMarkets, itemMarkets)) continue;
       discussions.push(d);
     }
 
@@ -249,6 +299,8 @@ export const list = query({
       ).filter((c): c is NonNullable<typeof c> => c !== null);
       const attachments = await attachmentsFor(ctx, d._id);
       const tags = await tagsFor(ctx, d._id);
+      const languages = await languagesFor(ctx, d._id);
+      const markets = await marketsFor(ctx, d._id);
 
       const metas = await ctx.db
         .query("discussionMetas")
@@ -269,12 +321,16 @@ export const list = query({
       const starCount = await countEngagement(ctx, "discussion", d._id, "Star");
       const isStarred = await isEngagedBy(ctx, "discussion", d._id, "Star", callerProfile._id);
 
+      if (onlyStarred && !isStarred) continue;
+
       result.push({
         ...d,
         creatorNickName: creator?.nickName ?? "",
         creatorProfileImageUrl,
         categoryNames: categories.map((c) => c.name),
         tags,
+        languages,
+        markets,
         attachments,
         images: attachments.filter((a) => a.kind === "image").map((a) => a.url),
         likeCount,
@@ -319,6 +375,11 @@ export const getDiscussion = query({
           .first()
       : null;
 
+    // Scheduled (future-dated) posts stay hidden from everyone but their
+    // author until due — mirrors the gating in `list`.
+    const isOwnerCaller = callerProfile ? discussion.userId === callerProfile._id : false;
+    if (discussion.postDate > Date.now() && !isOwnerCaller && !callerProfile?.fullAccess) return null;
+
     const creator = await ctx.db.get(discussion.userId);
     const creatorImage = creator
       ? await ctx.db
@@ -334,6 +395,8 @@ export const getDiscussion = query({
     ).filter((c): c is NonNullable<typeof c> => c !== null);
     const attachments = await attachmentsFor(ctx, discussionId);
     const tags = await tagsFor(ctx, discussionId);
+    const languages = await languagesFor(ctx, discussionId);
+    const markets = await marketsFor(ctx, discussionId);
 
     const metas = await ctx.db
       .query("discussionMetas")
@@ -383,6 +446,8 @@ export const getDiscussion = query({
       creator: { ...creator, profileImageUrl: creatorImageUrl },
       categoryNames: categories.map((c) => c.name),
       tags,
+      languages,
+      markets,
       attachments,
       images: attachments.filter((a) => a.kind === "image").map((a) => a.url),
       likeCount: metas.filter((m: any) => m.type === "Like").length,
@@ -450,6 +515,8 @@ export const createDiscussion = mutation({
     nonChinaVideoLink: v.optional(v.string()),
     categoryIds: v.optional(v.array(v.id("categories"))),
     tags: v.optional(v.array(v.string())),
+    languages: v.array(v.string()),
+    markets: v.array(v.string()),
     postDate: v.optional(v.number()),
     selectedZone: v.optional(v.string()),
     allowRetweet: v.boolean(),
@@ -466,6 +533,9 @@ export const createDiscussion = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await getCallerProfile(ctx);
+
+    if (args.languages.length === 0) throw new Error("Select at least one language to target.");
+    if (args.markets.length === 0) throw new Error("Select at least one market to target.");
 
     const discussionId = await ctx.db.insert("discussions", {
       userId: profile._id,
@@ -505,6 +575,13 @@ export const createDiscussion = mutation({
       if (!tag || seenTags.has(tag)) continue;
       seenTags.add(tag);
       await ctx.db.insert("discussionTags", { discussionId, tag });
+    }
+
+    for (const language of args.languages) {
+      await ctx.db.insert("discussionLanguages", { discussionId, language });
+    }
+    for (const market of args.markets) {
+      await ctx.db.insert("discussionMarkets", { discussionId, market });
     }
 
     await distributeDiscussion(ctx, discussionId, profile, {
@@ -640,6 +717,21 @@ export const engage = mutation({
     } else {
       await ctx.db.insert("discussionMetas", { discussionId, userId: profile._id, type });
     }
+  },
+});
+
+// Rename a previously-uploaded attachment's display name. The underlying
+// storage id / server-side file is never touched — only `documents.name`.
+export const renameAttachment = mutation({
+  args: { documentId: v.id("documents"), name: v.string() },
+  handler: async (ctx, { documentId, name }) => {
+    const profile = await getCallerProfile(ctx);
+    const doc = await ctx.db.get(documentId);
+    if (!doc) throw new Error("Attachment not found");
+    if (doc.userId !== profile._id) throw new Error("Not authorized");
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error("Name cannot be empty");
+    await ctx.db.patch(documentId, { name: trimmed });
   },
 });
 

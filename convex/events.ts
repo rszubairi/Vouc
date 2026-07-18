@@ -137,7 +137,7 @@ async function distributeEvent(
 
 export const createEvent = mutation({
   args: {
-    eventType: v.string(),
+    eventTypes: v.array(v.string()),
     title: v.string(),
     details: v.string(),
     speaker: v.optional(v.string()),
@@ -166,7 +166,7 @@ export const createEvent = mutation({
 
     const eventId = await ctx.db.insert("events", {
       userId: profile._id,
-      eventType: args.eventType,
+      eventTypes: args.eventTypes,
       title: args.title,
       details: args.details,
       speaker: args.speaker,
@@ -328,14 +328,16 @@ export const getEventAttendees = query({
 export const rsvpEvent = mutation({
   args: {
     eventId: v.id("events"),
+    attending: v.boolean(),
     paidBy: v.string(),
     paidTo: v.string(),
     paidVia: v.string(),
     amount: v.number(),
     transactionDate: v.number(),
-    guestName: v.optional(v.string()),
+    guestCount: v.optional(v.number()),
+    guestNames: v.optional(v.array(v.string())),
     remarks: v.optional(v.string()),
-    receiptUrl: v.optional(v.string()),
+    receipts: v.optional(v.array(attachmentInput)),
   },
   handler: async (ctx, args) => {
     const profile = await getCallerProfile(ctx);
@@ -345,7 +347,9 @@ export const rsvpEvent = mutation({
     const attendanceId = await ctx.db.insert("eventAttendances", {
       eventId: args.eventId,
       userId: profile._id,
-      guestName: args.guestName,
+      attending: args.attending,
+      guestCount: args.guestCount,
+      guestNames: args.guestNames,
       paidBy: args.paidBy,
       paidTo: args.paidTo,
       paidVia: args.paidVia,
@@ -354,16 +358,21 @@ export const rsvpEvent = mutation({
       remarks: args.remarks,
     });
 
-    if (args.receiptUrl) {
-      const docId = await ctx.db.insert("documents", {
-        userId: profile._id,
-        name: "Receipt",
-        url: args.receiptUrl,
-      });
-      await ctx.db.insert("eventAttendanceDocuments", {
-        eventAttendanceId: attendanceId,
-        documentId: docId,
-      });
+    if (args.receipts) {
+      for (const receipt of args.receipts) {
+        const url = await ctx.storage.getUrl(receipt.storageId);
+        if (!url) continue;
+        const docId = await ctx.db.insert("documents", {
+          userId: profile._id,
+          name: receipt.fileName ?? "Receipt",
+          url,
+          storageId: receipt.storageId,
+        });
+        await ctx.db.insert("eventAttendanceDocuments", {
+          eventAttendanceId: attendanceId,
+          documentId: docId,
+        });
+      }
     }
 
     return attendanceId;
@@ -400,7 +409,7 @@ export const adminUpdate = mutation({
   args: {
     id: v.id("events"),
     title: v.string(),
-    eventType: v.string(),
+    eventTypes: v.array(v.string()),
     details: v.string(),
     speaker: v.optional(v.string()),
     eventDateStart: v.number(),

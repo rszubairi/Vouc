@@ -51,6 +51,28 @@ export const listCategories = query({
   },
 });
 
+function matchesPreference(callerPrefs: string[], itemValues: string[]) {
+  if (callerPrefs.length === 0) return true;
+  if (itemValues.length === 0) return true;
+  return itemValues.some((v) => callerPrefs.includes(v));
+}
+
+async function languagesFor(ctx: any, libraryItemId: Id<"libraryItems">) {
+  const rows = await ctx.db
+    .query("libraryLanguages")
+    .withIndex("by_libraryItemId", (q: any) => q.eq("libraryItemId", libraryItemId))
+    .collect();
+  return rows.map((r: any) => r.language);
+}
+
+async function marketsFor(ctx: any, libraryItemId: Id<"libraryItems">) {
+  const rows = await ctx.db
+    .query("libraryMarkets")
+    .withIndex("by_libraryItemId", (q: any) => q.eq("libraryItemId", libraryItemId))
+    .collect();
+  return rows.map((r: any) => r.market);
+}
+
 export const listItems = query({
   args: {
     categoryId: v.optional(v.id("categories")),
@@ -69,6 +91,19 @@ export const listItems = query({
       .withIndex("by_userId", (q) => q.eq("userId", authUserId))
       .first();
     if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
+
+    const callerLanguages = (
+      await ctx.db
+        .query("profileLanguages")
+        .withIndex("by_profileId", (q) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r) => r.language);
+    const callerMarkets = (
+      await ctx.db
+        .query("profileMarkets")
+        .withIndex("by_profileId", (q) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r) => r.market);
 
     let itemIds: Set<Id<"libraryItems">>;
     if (callerProfile.fullAccess) {
@@ -94,12 +129,19 @@ export const listItems = query({
       for (const item of ownItems) itemIds.add(item._id);
     }
 
+    const now = Date.now();
     const results = [];
     for (const itemId of itemIds) {
       const item = await ctx.db.get(itemId);
       if (!item || item.isDeleted) continue;
+      // Scheduled (future-dated) items stay hidden from everyone but their author until due.
+      if (item.postDate > now && item.userId !== callerProfile._id && !callerProfile.fullAccess) continue;
       if (categoryId && !item.categoryIds.includes(categoryId)) continue;
       if (type && item.type !== type) continue;
+      const itemLanguages = await languagesFor(ctx, item._id);
+      const itemMarkets = await marketsFor(ctx, item._id);
+      if (!matchesPreference(callerLanguages, itemLanguages)) continue;
+      if (!matchesPreference(callerMarkets, itemMarkets)) continue;
 
       const creator = await ctx.db.get(item.userId);
       const creatorImage = creator
@@ -117,15 +159,24 @@ export const listItems = query({
       const starCount = await countEngagement(ctx, "libraryItem", item._id, "Star");
       const isLiked = await isEngagedBy(ctx, "libraryItem", item._id, "Like", callerProfile._id);
       const isStarred = await isEngagedBy(ctx, "libraryItem", item._id, "Star", callerProfile._id);
+      const commentCount = (
+        await ctx.db
+          .query("libraryItemMetas")
+          .withIndex("by_libraryItemId", (q) => q.eq("libraryItemId", item._id))
+          .collect()
+      ).filter((m) => m.type === "Comment").length;
 
       results.push({
         ...item,
         creatorNickName: creator?.nickName ?? "",
         creatorProfileImageUrl,
+        languages: itemLanguages,
+        markets: itemMarkets,
         likeCount,
         starCount,
         isLiked,
         isStarred,
+        commentCount,
       });
     }
 
@@ -153,6 +204,11 @@ export const getItem = query({
           .withIndex("by_userId", (q) => q.eq("userId", authUserId))
           .first()
       : null;
+
+    // Scheduled (future-dated) items stay hidden from everyone but their
+    // author until due — mirrors the gating in `listItems`.
+    const isOwnerCaller = callerProfile ? item.userId === callerProfile._id : false;
+    if (item.postDate > Date.now() && !isOwnerCaller && !callerProfile?.fullAccess) return null;
 
     const creator = await ctx.db.get(item.userId);
     const creatorImage = creator
@@ -200,6 +256,8 @@ export const getItem = query({
       creatorNickName: creator?.nickName ?? "",
       creatorProfileImageUrl,
       categoryNames: categories.map((c) => c.name),
+      languages: await languagesFor(ctx, itemId),
+      markets: await marketsFor(ctx, itemId),
       images: imageUrls,
       documents: docList,
       likeCount: await countEngagement(ctx, "libraryItem", itemId, "Like"),
@@ -229,8 +287,12 @@ export const createLibraryItem = mutation({
     categoryIds: v.optional(v.array(v.id("categories"))),
     division: v.optional(v.string()),
     tag: v.optional(v.string()),
+    languages: v.array(v.string()),
+    markets: v.array(v.string()),
     chinaVideoLink: v.optional(v.string()),
     nonChinaVideoLink: v.optional(v.string()),
+    postDate: v.optional(v.number()),
+    selectedZone: v.optional(v.string()),
     allowRetweet: v.boolean(),
     mustRead: v.boolean(),
     toUpline: v.boolean(),
@@ -246,6 +308,9 @@ export const createLibraryItem = mutation({
   handler: async (ctx, args) => {
     const profile = await getCallerProfile(ctx);
 
+    if (args.languages.length === 0) throw new Error("Select at least one language to target.");
+    if (args.markets.length === 0) throw new Error("Select at least one market to target.");
+
     for (const categoryId of args.categoryIds ?? []) {
       const category = await ctx.db.get(categoryId);
       if (!category || !isDirectoryScoped(category)) {
@@ -260,7 +325,8 @@ export const createLibraryItem = mutation({
       categoryIds: args.categoryIds ?? [],
       division: args.division,
       tag: args.tag,
-      postDate: Date.now(),
+      postDate: args.postDate ?? Date.now(),
+      selectedZone: args.selectedZone,
       chinaVideoLink: args.chinaVideoLink,
       nonChinaVideoLink: args.nonChinaVideoLink,
       allowRetweet: args.allowRetweet,
@@ -276,6 +342,13 @@ export const createLibraryItem = mutation({
       maxLevel: args.maxLevel,
       minRank: args.minRank,
     });
+
+    for (const language of args.languages) {
+      await ctx.db.insert("libraryLanguages", { libraryItemId: itemId, language });
+    }
+    for (const market of args.markets) {
+      await ctx.db.insert("libraryMarkets", { libraryItemId: itemId, market });
+    }
 
     let imageOrder = 0;
     for (const a of args.attachments ?? []) {
@@ -352,5 +425,109 @@ export const deleteLibraryItem = mutation({
     if (!item) throw new Error("Item not found");
     if (item.userId !== profile._id) throw new Error("Not authorized");
     await ctx.db.patch(itemId, { isDeleted: true });
+  },
+});
+
+export const listComments = query({
+  args: { itemId: v.id("libraryItems") },
+  handler: async (ctx, { itemId }) => {
+    const metas = await ctx.db
+      .query("libraryItemMetas")
+      .withIndex("by_libraryItemId", (q) => q.eq("libraryItemId", itemId))
+      .collect();
+    const comments = metas
+      .filter((m) => m.type === "Comment")
+      .sort((a, b) => (a.commentDate ?? 0) - (b.commentDate ?? 0));
+
+    const results = [];
+    for (const c of comments) {
+      const commenter = await ctx.db.get(c.userId);
+      const commenterImage = commenter
+        ? await ctx.db
+            .query("profileImages")
+            .withIndex("by_profileId", (q) => q.eq("profileId", commenter._id))
+            .filter((q) => q.eq(q.field("isPrimary"), true))
+            .first()
+        : null;
+      const commenterProfileImageUrl = commenterImage
+        ? (await ctx.db.get(commenterImage.imageId))?.url ?? null
+        : null;
+
+      const imageRows = await ctx.db
+        .query("libraryCommentImages")
+        .withIndex("by_commentId", (q) => q.eq("commentId", c._id))
+        .collect();
+      const fileRows = await ctx.db
+        .query("libraryCommentFiles")
+        .withIndex("by_commentId", (q) => q.eq("commentId", c._id))
+        .collect();
+      const attachments: Array<{ kind: "image" | "file"; url: string; name?: string }> = [];
+      for (const row of imageRows.sort((a, b) => a.order - b.order)) {
+        const img = await ctx.db.get(row.imageId);
+        if (img) attachments.push({ kind: "image", url: img.url });
+      }
+      for (const row of fileRows.sort((a, b) => a.order - b.order)) {
+        const doc = await ctx.db.get(row.documentId);
+        if (doc) attachments.push({ kind: "file", url: doc.url, name: doc.name });
+      }
+
+      results.push({
+        _id: c._id,
+        comment: c.comment ?? "",
+        commentDate: c.commentDate ?? 0,
+        commenterNickName: commenter?.nickName ?? "",
+        commenterProfileImageUrl,
+        attachments,
+      });
+    }
+    return results;
+  },
+});
+
+const commentAttachmentInput = v.object({
+  storageId: v.id("_storage"),
+  kind: v.union(v.literal("image"), v.literal("file")),
+  fileName: v.optional(v.string()),
+});
+
+export const addComment = mutation({
+  args: {
+    itemId: v.id("libraryItems"),
+    comment: v.string(),
+    attachments: v.optional(v.array(commentAttachmentInput)),
+  },
+  handler: async (ctx, { itemId, comment, attachments }) => {
+    const profile = await getCallerProfile(ctx);
+    const item = await ctx.db.get(itemId);
+    if (!item || item.isDeleted) throw new Error("Item not found");
+    if (!comment.trim()) throw new Error("Comment cannot be empty");
+
+    const commentId = await ctx.db.insert("libraryItemMetas", {
+      libraryItemId: itemId,
+      userId: profile._id,
+      type: "Comment",
+      comment,
+      commentDate: Date.now(),
+    });
+
+    let order = 0;
+    for (const a of attachments ?? []) {
+      const url = await ctx.storage.getUrl(a.storageId);
+      if (!url) continue;
+      if (a.kind === "image") {
+        const imageId = await ctx.db.insert("images", { userId: profile._id, url, storageId: a.storageId });
+        await ctx.db.insert("libraryCommentImages", { commentId, imageId, order: order++ });
+      } else {
+        const documentId = await ctx.db.insert("documents", {
+          userId: profile._id,
+          name: a.fileName ?? "File",
+          url,
+          storageId: a.storageId,
+        });
+        await ctx.db.insert("libraryCommentFiles", { commentId, documentId, order: order++ });
+      }
+    }
+
+    return commentId;
   },
 });

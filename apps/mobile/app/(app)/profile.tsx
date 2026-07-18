@@ -15,8 +15,8 @@ import { api } from "../../../../convex/_generated/api";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
-import { LANGUAGES } from "../../constants/languages";
-import { MARKETS } from "../../constants/markets";
+import { LANGUAGES, ALL_LANGUAGES } from "../../constants/languages";
+import { MARKETS, ALL_MARKETS } from "../../constants/markets";
 
 export default function ProfileScreen() {
   const me = useQuery(api.profiles.me);
@@ -77,8 +77,8 @@ export default function ProfileScreen() {
         youtube: me.youtube ?? "",
       });
       setReferrer(me.sponsorName ?? "");
-      setLanguages(me.languages ?? []);
-      setMarkets(me.markets ?? []);
+      setLanguages(me.languages && me.languages.length > 0 ? me.languages : [ALL_LANGUAGES]);
+      setMarkets(me.markets && me.markets.length > 0 ? me.markets : [ALL_MARKETS]);
     }
   }, [me?._id]);
 
@@ -87,13 +87,25 @@ export default function ProfileScreen() {
   }
 
   function toggleLanguage(language: string) {
-    setLanguages((prev) =>
-      prev.includes(language) ? prev.filter((l) => l !== language) : [...prev, language]
-    );
+    setLanguages((prev) => {
+      if (language === ALL_LANGUAGES) return [ALL_LANGUAGES];
+      const withoutAll = prev.filter((l) => l !== ALL_LANGUAGES);
+      const next = withoutAll.includes(language)
+        ? withoutAll.filter((l) => l !== language)
+        : [...withoutAll, language];
+      return next.length === 0 ? [ALL_LANGUAGES] : next;
+    });
   }
 
   function toggleMarket(market: string) {
-    setMarkets((prev) => (prev.includes(market) ? prev.filter((m) => m !== market) : [...prev, market]));
+    setMarkets((prev) => {
+      if (market === ALL_MARKETS) return [ALL_MARKETS];
+      const withoutAll = prev.filter((m) => m !== ALL_MARKETS);
+      const next = withoutAll.includes(market)
+        ? withoutAll.filter((m) => m !== market)
+        : [...withoutAll, market];
+      return next.length === 0 ? [ALL_MARKETS] : next;
+    });
   }
 
   async function handleSave() {
@@ -124,7 +136,9 @@ export default function ProfileScreen() {
   async function handleSaveLanguages() {
     try {
       setSavingLanguages(true);
-      await updateMyLanguages({ languages });
+      // Empty array in the backend means "follow all languages".
+      const toSave = languages.includes(ALL_LANGUAGES) ? [] : languages;
+      await updateMyLanguages({ languages: toSave });
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Could not save languages.");
     } finally {
@@ -135,7 +149,9 @@ export default function ProfileScreen() {
   async function handleSaveMarkets() {
     try {
       setSavingMarkets(true);
-      await updateMyMarkets({ markets });
+      // Empty array in the backend means "follow all markets".
+      const toSave = markets.includes(ALL_MARKETS) ? [] : markets;
+      await updateMyMarkets({ markets: toSave });
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Could not save markets.");
     } finally {
@@ -319,6 +335,14 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Languages to Follow</Text>
         <View style={styles.chipWrap}>
+          <TouchableOpacity
+            style={[styles.chip, languages.includes(ALL_LANGUAGES) && styles.chipActive]}
+            onPress={() => toggleLanguage(ALL_LANGUAGES)}
+          >
+            <Text style={[styles.chipText, languages.includes(ALL_LANGUAGES) && styles.chipTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
           {LANGUAGES.map((language) => (
             <TouchableOpacity
               key={language}
@@ -347,6 +371,14 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Markets to Follow</Text>
         <View style={styles.chipWrap}>
+          <TouchableOpacity
+            style={[styles.chip, markets.includes(ALL_MARKETS) && styles.chipActive]}
+            onPress={() => toggleMarket(ALL_MARKETS)}
+          >
+            <Text style={[styles.chipText, markets.includes(ALL_MARKETS) && styles.chipTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
           {MARKETS.map((market) => (
             <TouchableOpacity
               key={market}

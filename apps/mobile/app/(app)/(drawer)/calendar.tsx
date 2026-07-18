@@ -61,7 +61,7 @@ export default function CalendarScreen() {
       (e) =>
         e.title?.toLowerCase().includes(q) ||
         e.speaker?.toLowerCase().includes(q) ||
-        e.eventType?.toLowerCase().includes(q)
+        e.eventTypes?.some((t) => t.toLowerCase().includes(q))
     );
   }, [events, selectedDate, search]);
 
@@ -114,7 +114,7 @@ export default function CalendarScreen() {
               style={styles.eventCard}
               onPress={() => router.push(`/(app)/event/${event._id}`)}
             >
-              <Text style={styles.eventType}>{event.eventType}</Text>
+              <Text style={styles.eventType}>{event.eventTypes?.join(", ")}</Text>
               <Text style={styles.eventTitle}>{event.title}</Text>
               <Text style={styles.eventTime}>
                 {new Date(event.eventDateStart).toLocaleTimeString([], {

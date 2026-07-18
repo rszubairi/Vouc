@@ -469,6 +469,7 @@ export const listDirectory = query({
         starCount: await countEngagement(ctx, "profile", p._id, "Star"),
         isLiked: await isEngagedBy(ctx, "profile", p._id, "Like", callerProfile._id),
         isStarred: await isEngagedBy(ctx, "profile", p._id, "Star", callerProfile._id),
+        sponsorName: p.sponsorId ? (await ctx.db.get(p.sponsorId))?.nickName ?? null : null,
       }))
     );
 

@@ -24,6 +24,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { IANA_TIMEZONES } from "../../../constants/timezones";
+import { LANGUAGES } from "../../../constants/languages";
+import { MARKETS } from "../../../constants/markets";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 // Hermes doesn't reliably support Intl.supportedValuesOf, so fall back to
@@ -35,10 +37,45 @@ const TIMEZONES: string[] =
     ? (Intl as any).supportedValuesOf("timeZone")
     : Array.from(new Set([DEVICE_TIMEZONE, ...IANA_TIMEZONES]));
 
-function parseScheduledDateTime(dateStr: string, timeStr: string): number | null {
+// Returns the UTC offset (ms) that `timeZone` observes at `atUtcMs`, i.e. how
+// far local wall-clock time in that zone is ahead of UTC at that instant.
+function getTimeZoneOffsetMs(timeZone: string, atUtcMs: number): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = dtf.formatToParts(new Date(atUtcMs));
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+  const asIfUTC = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour),
+    Number(map.minute),
+    Number(map.second)
+  );
+  return asIfUTC - atUtcMs;
+}
+
+// Converts a wall-clock date/time as observed in `timeZone` into the
+// corresponding UTC instant (ms). Using the device's local timezone here
+// (as `new Date(...)` would) silently mis-schedules posts whenever the
+// selected timezone differs from the device's.
+function parseScheduledDateTime(dateStr: string, timeStr: string, timeZone: string): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(timeStr)) return null;
-  const ms = new Date(`${dateStr}T${timeStr}:00`).getTime();
-  return Number.isNaN(ms) ? null : ms;
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  const naiveUtcMs = Date.UTC(y, mo - 1, d, h, mi, 0);
+  if (Number.isNaN(naiveUtcMs)) return null;
+  const offset = getTimeZoneOffsetMs(timeZone, naiveUtcMs);
+  return naiveUtcMs - offset;
 }
 
 type PendingAttachment = {
@@ -59,14 +96,18 @@ export default function CreateDiscussionScreen() {
   const [categoryId, setCategoryId] = useState<Id<"categories"> | null>(
     paramCategoryId ? (paramCategoryId as Id<"categories">) : null
   );
+  const selectedCategoryName = categories?.find((c) => c._id === categoryId)?.name ?? null;
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [nonChinaVideoLink, setNonChinaVideoLink] = useState("");
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [markets, setMarkets] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [toDownline, setToDownline] = useState(true);
-  const [toUpline, setToUpline] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
 
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState(""); // "YYYY-MM-DD"
@@ -76,6 +117,11 @@ export default function CreateDiscussionScreen() {
   const [zonePickerVisible, setZonePickerVisible] = useState(false);
   const [zoneSearch, setZoneSearch] = useState("");
 
+  // Visibility distribution is not configurable from the mobile app right
+  // now — always share to downline only.
+  const toDownline = true;
+  const toUpline = false;
+
   function addTag() {
     const t = tagInput.trim().toLowerCase();
     if (t && !tags.includes(t)) setTags((prev) => [...prev, t]);
@@ -84,6 +130,16 @@ export default function CreateDiscussionScreen() {
 
   function removeTag(t: string) {
     setTags((prev) => prev.filter((x) => x !== t));
+  }
+
+  function toggleLanguage(language: string) {
+    setLanguages((prev) =>
+      prev.includes(language) ? prev.filter((l) => l !== language) : [...prev, language]
+    );
+  }
+
+  function toggleMarket(market: string) {
+    setMarkets((prev) => (prev.includes(market) ? prev.filter((m) => m !== market) : [...prev, market]));
   }
 
   async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
@@ -137,14 +193,37 @@ export default function CreateDiscussionScreen() {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function openRename(index: number) {
+    setRenamingIndex(index);
+    setRenameValue(attachments[index]?.fileName ?? "");
+  }
+
+  function confirmRename() {
+    if (renamingIndex === null) return;
+    const name = renameValue.trim();
+    setAttachments((prev) =>
+      prev.map((a, i) => (i === renamingIndex ? { ...a, fileName: name || a.fileName } : a))
+    );
+    setRenamingIndex(null);
+    setRenameValue("");
+  }
+
   async function handleSubmit() {
     if (!details.trim()) {
       Alert.alert("Required", "Please enter discussion details.");
       return;
     }
+    if (languages.length === 0) {
+      Alert.alert("Required", "Please select at least one language to target.");
+      return;
+    }
+    if (markets.length === 0) {
+      Alert.alert("Required", "Please select at least one market to target.");
+      return;
+    }
     let postDate: number | undefined;
     if (isScheduled) {
-      const ms = parseScheduledDateTime(scheduleDate, scheduleTime);
+      const ms = parseScheduledDateTime(scheduleDate, scheduleTime, timezone);
       if (ms === null) {
         Alert.alert("Invalid schedule", "Please pick a valid date and time.");
         return;
@@ -162,6 +241,8 @@ export default function CreateDiscussionScreen() {
         details: details.trim(),
         categoryIds: categoryId ? [categoryId] : undefined,
         tags: tags.length ? tags : undefined,
+        languages,
+        markets,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
         postDate,
@@ -210,17 +291,11 @@ export default function CreateDiscussionScreen() {
       />
 
       <Text style={styles.label}>Category (optional)</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-        {(categories ?? []).map((cat) => (
-          <TouchableOpacity
-            key={cat._id}
-            style={[styles.chip, categoryId === cat._id && styles.chipActive]}
-            onPress={() => setCategoryId((prev) => (prev === cat._id ? null : cat._id))}
-          >
-            <Text style={[styles.chipText, categoryId === cat._id && styles.chipTextActive]}>{cat.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <TouchableOpacity style={styles.input} onPress={() => setCategoryPickerVisible(true)}>
+        <Text style={selectedCategoryName ? styles.scheduleValue : styles.schedulePlaceholder}>
+          {selectedCategoryName ?? "Select a category"}
+        </Text>
+      </TouchableOpacity>
 
       <Text style={styles.label}>Tags / Keywords (optional)</Text>
       <View style={styles.tagInputRow}>
@@ -248,6 +323,36 @@ export default function CreateDiscussionScreen() {
         </View>
       )}
 
+      <Text style={styles.label}>Language *</Text>
+      <View style={styles.tagList}>
+        {LANGUAGES.map((language) => (
+          <TouchableOpacity
+            key={language}
+            style={[styles.chip, languages.includes(language) && styles.chipActive]}
+            onPress={() => toggleLanguage(language)}
+          >
+            <Text style={[styles.chipText, languages.includes(language) && styles.chipTextActive]}>
+              {language}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Market *</Text>
+      <View style={styles.tagList}>
+        {MARKETS.map((market) => (
+          <TouchableOpacity
+            key={market}
+            style={[styles.chip, markets.includes(market) && styles.chipActive]}
+            onPress={() => toggleMarket(market)}
+          >
+            <Text style={[styles.chipText, markets.includes(market) && styles.chipTextActive]}>
+              {market}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <Text style={styles.label}>Video Link (optional)</Text>
       <TextInput
         style={styles.input}
@@ -273,24 +378,18 @@ export default function CreateDiscussionScreen() {
       {attachments.length > 0 && (
         <View style={styles.tagList}>
           {attachments.map((a, i) => (
-            <TouchableOpacity key={i} style={styles.tagChip} onPress={() => removeAttachment(i)}>
+            <View key={i} style={styles.tagChip}>
               <Ionicons name={a.kind === "image" ? "image" : "document"} size={12} color="#1C1B18" />
-              <Text style={styles.tagChipText} numberOfLines={1}>{a.fileName ?? a.kind}</Text>
-              <Ionicons name="close" size={12} color="#1C1B18" />
-            </TouchableOpacity>
+              <TouchableOpacity onPress={() => openRename(i)}>
+                <Text style={styles.tagChipText} numberOfLines={1}>{a.fileName ?? a.kind}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => removeAttachment(i)} hitSlop={6}>
+                <Ionicons name="close" size={12} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
       )}
-
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Share to Downline</Text>
-        <Switch value={toDownline} onValueChange={setToDownline} trackColor={{ true: "#1C1B18" }} />
-      </View>
-
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Share to Upline</Text>
-        <Switch value={toUpline} onValueChange={setToUpline} trackColor={{ true: "#1C1B18" }} />
-      </View>
 
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Schedule Post</Text>
@@ -330,6 +429,78 @@ export default function CreateDiscussionScreen() {
           <Text style={styles.submitText}>{isScheduled ? "Schedule Post" : "Start Discussion"}</Text>
         )}
       </TouchableOpacity>
+
+      <Modal visible={categoryPickerVisible} animationType="slide" transparent onRequestClose={() => setCategoryPickerVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCategoryPickerVisible(false)}
+        >
+          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Select Category</Text>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setCategoryPickerVisible(false)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.zoneRow}
+              onPress={() => {
+                setCategoryId(null);
+                setCategoryPickerVisible(false);
+              }}
+            >
+              <Text style={styles.zoneRowText}>None</Text>
+              {categoryId === null && <Ionicons name="checkmark" size={18} color="#F2650C" />}
+            </TouchableOpacity>
+            {(categories ?? []).map((cat) => (
+              <TouchableOpacity
+                key={cat._id}
+                style={styles.zoneRow}
+                onPress={() => {
+                  setCategoryId(cat._id);
+                  setCategoryPickerVisible(false);
+                }}
+              >
+                <Text style={styles.zoneRowText}>{cat.name}</Text>
+                {categoryId === cat._id && <Ionicons name="checkmark" size={18} color="#F2650C" />}
+              </TouchableOpacity>
+            ))}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={renamingIndex !== null} animationType="slide" transparent onRequestClose={() => setRenamingIndex(null)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setRenamingIndex(null)}
+        >
+          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Rename Attachment</Text>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setRenamingIndex(null)} hitSlop={8}>
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="File name"
+              placeholderTextColor="#aaa"
+              autoFocus
+            />
+            <TouchableOpacity style={styles.applyBtn} onPress={confirmRename}>
+              <Text style={styles.applyBtnText}>Save</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={datePickerVisible} animationType="slide" transparent onRequestClose={() => setDatePickerVisible(false)}>
         <TouchableOpacity

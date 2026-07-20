@@ -24,6 +24,10 @@ function isKnowledgeHubScoped(c: { scope?: string }) {
   return c.scope === "knowledgeHub";
 }
 
+// "ALL" is a sentinel the client sends to mean "no language/market
+// targeting" — such items are visible to everyone (see matchesPreference).
+const ALL_SENTINEL = "ALL";
+
 function matchesPreference(callerPrefs: string[], itemValues: string[]) {
   if (callerPrefs.length === 0) return true;
   if (itemValues.length === 0) return true;
@@ -99,10 +103,14 @@ export const listItems = query({
       for (const item of ownItems) itemIds.add(item._id);
     }
 
+    const now = Date.now();
     const results = [];
     for (const itemId of itemIds) {
       const item = await ctx.db.get(itemId);
       if (!item || item.isDeleted) continue;
+      // Scheduled (future-dated) items stay hidden from everyone but their
+      // author until due — mirrors the gating in library.listItems.
+      if (item.postDate > now && item.userId !== callerProfile._id && !callerProfile.fullAccess) continue;
       if (categoryId && !item.categoryIds.includes(categoryId)) continue;
       const itemLanguages = await languagesFor(ctx, item._id);
       const itemMarkets = await marketsFor(ctx, item._id);
@@ -163,6 +171,11 @@ export const getItem = query({
           .withIndex("by_userId", (q) => q.eq("userId", authUserId))
           .first()
       : null;
+
+    // Scheduled (future-dated) items stay hidden from everyone but their
+    // author until due — mirrors the gating in `listItems`.
+    const isOwnerCaller = callerProfile ? item.userId === callerProfile._id : false;
+    if (item.postDate > Date.now() && !isOwnerCaller && !callerProfile?.fullAccess) return null;
 
     const creator = await ctx.db.get(item.userId);
     const creatorImage = creator
@@ -241,6 +254,8 @@ export const createItem = mutation({
     categoryIds: v.optional(v.array(v.id("categories"))),
     languages: v.array(v.string()),
     markets: v.array(v.string()),
+    postDate: v.optional(v.number()),
+    selectedZone: v.optional(v.string()),
     nonChinaVideoLink: v.optional(v.string()),
     allowRetweet: v.boolean(),
     mustRead: v.boolean(),
@@ -272,7 +287,8 @@ export const createItem = mutation({
       title: args.title,
       description: args.description,
       categoryIds: args.categoryIds ?? [],
-      postDate: Date.now(),
+      postDate: args.postDate ?? Date.now(),
+      selectedZone: args.selectedZone,
       nonChinaVideoLink: args.nonChinaVideoLink,
       allowRetweet: args.allowRetweet,
       mustRead: args.mustRead,
@@ -287,11 +303,15 @@ export const createItem = mutation({
       minRank: args.minRank,
     });
 
-    for (const language of args.languages) {
-      await ctx.db.insert("knowledgeHubLanguages", { knowledgeHubItemId: itemId, language });
+    if (!args.languages.includes(ALL_SENTINEL)) {
+      for (const language of args.languages) {
+        await ctx.db.insert("knowledgeHubLanguages", { knowledgeHubItemId: itemId, language });
+      }
     }
-    for (const market of args.markets) {
-      await ctx.db.insert("knowledgeHubMarkets", { knowledgeHubItemId: itemId, market });
+    if (!args.markets.includes(ALL_SENTINEL)) {
+      for (const market of args.markets) {
+        await ctx.db.insert("knowledgeHubMarkets", { knowledgeHubItemId: itemId, market });
+      }
     }
 
     let imageOrder = 0;

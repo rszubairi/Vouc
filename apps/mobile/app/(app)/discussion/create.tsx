@@ -24,8 +24,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { IANA_TIMEZONES } from "../../../constants/timezones";
-import { LANGUAGES } from "../../../constants/languages";
-import { MARKETS } from "../../../constants/markets";
+import { LANGUAGES, ALL_LANGUAGES } from "../../../constants/languages";
+import { MARKETS, ALL_MARKETS } from "../../../constants/markets";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 // Hermes doesn't reliably support Intl.supportedValuesOf, so fall back to
@@ -133,13 +133,23 @@ export default function CreateDiscussionScreen() {
   }
 
   function toggleLanguage(language: string) {
-    setLanguages((prev) =>
-      prev.includes(language) ? prev.filter((l) => l !== language) : [...prev, language]
-    );
+    setLanguages((prev) => {
+      if (language === ALL_LANGUAGES) return [ALL_LANGUAGES];
+      const withoutAll = prev.filter((l) => l !== ALL_LANGUAGES);
+      return withoutAll.includes(language)
+        ? withoutAll.filter((l) => l !== language)
+        : [...withoutAll, language];
+    });
   }
 
   function toggleMarket(market: string) {
-    setMarkets((prev) => (prev.includes(market) ? prev.filter((m) => m !== market) : [...prev, market]));
+    setMarkets((prev) => {
+      if (market === ALL_MARKETS) return [ALL_MARKETS];
+      const withoutAll = prev.filter((m) => m !== ALL_MARKETS);
+      return withoutAll.includes(market)
+        ? withoutAll.filter((m) => m !== market)
+        : [...withoutAll, market];
+    });
   }
 
   async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
@@ -325,6 +335,14 @@ export default function CreateDiscussionScreen() {
 
       <Text style={styles.label}>Language *</Text>
       <View style={styles.tagList}>
+        <TouchableOpacity
+          style={[styles.chip, languages.includes(ALL_LANGUAGES) && styles.chipActive]}
+          onPress={() => toggleLanguage(ALL_LANGUAGES)}
+        >
+          <Text style={[styles.chipText, languages.includes(ALL_LANGUAGES) && styles.chipTextActive]}>
+            All
+          </Text>
+        </TouchableOpacity>
         {LANGUAGES.map((language) => (
           <TouchableOpacity
             key={language}
@@ -340,6 +358,14 @@ export default function CreateDiscussionScreen() {
 
       <Text style={styles.label}>Market *</Text>
       <View style={styles.tagList}>
+        <TouchableOpacity
+          style={[styles.chip, markets.includes(ALL_MARKETS) && styles.chipActive]}
+          onPress={() => toggleMarket(ALL_MARKETS)}
+        >
+          <Text style={[styles.chipText, markets.includes(ALL_MARKETS) && styles.chipTextActive]}>
+            All
+          </Text>
+        </TouchableOpacity>
         {MARKETS.map((market) => (
           <TouchableOpacity
             key={market}

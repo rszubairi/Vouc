@@ -173,6 +173,10 @@ function matchesPreference(callerPrefs: string[], itemValues: string[]) {
   return itemValues.some((v) => callerPrefs.includes(v));
 }
 
+// "ALL" is a sentinel the client sends to mean "no language/market
+// targeting" — such items are visible to everyone (see matchesPreference).
+const ALL_SENTINEL = "ALL";
+
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 // List/search discussions visible to the current user, newest-first by default.
@@ -577,11 +581,15 @@ export const createDiscussion = mutation({
       await ctx.db.insert("discussionTags", { discussionId, tag });
     }
 
-    for (const language of args.languages) {
-      await ctx.db.insert("discussionLanguages", { discussionId, language });
+    if (!args.languages.includes(ALL_SENTINEL)) {
+      for (const language of args.languages) {
+        await ctx.db.insert("discussionLanguages", { discussionId, language });
+      }
     }
-    for (const market of args.markets) {
-      await ctx.db.insert("discussionMarkets", { discussionId, market });
+    if (!args.markets.includes(ALL_SENTINEL)) {
+      for (const market of args.markets) {
+        await ctx.db.insert("discussionMarkets", { discussionId, market });
+      }
     }
 
     await distributeDiscussion(ctx, discussionId, profile, {

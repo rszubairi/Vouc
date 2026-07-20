@@ -57,6 +57,10 @@ function matchesPreference(callerPrefs: string[], itemValues: string[]) {
   return itemValues.some((v) => callerPrefs.includes(v));
 }
 
+// "ALL" is a sentinel the client sends to mean "no language/market
+// targeting" — such items are visible to everyone (see matchesPreference).
+const ALL_SENTINEL = "ALL";
+
 async function languagesFor(ctx: any, libraryItemId: Id<"libraryItems">) {
   const rows = await ctx.db
     .query("libraryLanguages")
@@ -343,11 +347,15 @@ export const createLibraryItem = mutation({
       minRank: args.minRank,
     });
 
-    for (const language of args.languages) {
-      await ctx.db.insert("libraryLanguages", { libraryItemId: itemId, language });
+    if (!args.languages.includes(ALL_SENTINEL)) {
+      for (const language of args.languages) {
+        await ctx.db.insert("libraryLanguages", { libraryItemId: itemId, language });
+      }
     }
-    for (const market of args.markets) {
-      await ctx.db.insert("libraryMarkets", { libraryItemId: itemId, market });
+    if (!args.markets.includes(ALL_SENTINEL)) {
+      for (const market of args.markets) {
+        await ctx.db.insert("libraryMarkets", { libraryItemId: itemId, market });
+      }
     }
 
     let imageOrder = 0;

@@ -453,6 +453,7 @@ export default defineSchema(
       description: v.string(),
       categoryIds: v.array(v.id("categories")),
       postDate: v.number(),
+      selectedZone: v.optional(v.string()),
       nonChinaVideoLink: v.optional(v.string()),
       allowRetweet: v.boolean(),
       mustRead: v.boolean(),

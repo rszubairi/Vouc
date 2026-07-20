@@ -24,8 +24,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { IANA_TIMEZONES } from "../../../constants/timezones";
-import { LANGUAGES } from "../../../constants/languages";
-import { MARKETS } from "../../../constants/markets";
+import { LANGUAGES, ALL_LANGUAGES } from "../../../constants/languages";
+import { MARKETS, ALL_MARKETS } from "../../../constants/markets";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 // Hermes doesn't reliably support Intl.supportedValuesOf, so fall back to
@@ -183,13 +183,23 @@ export default function CreateLibraryItemScreen() {
   }
 
   function toggleLanguage(language: string) {
-    setLanguages((prev) =>
-      prev.includes(language) ? prev.filter((l) => l !== language) : [...prev, language]
-    );
+    setLanguages((prev) => {
+      if (language === ALL_LANGUAGES) return [ALL_LANGUAGES];
+      const withoutAll = prev.filter((l) => l !== ALL_LANGUAGES);
+      return withoutAll.includes(language)
+        ? withoutAll.filter((l) => l !== language)
+        : [...withoutAll, language];
+    });
   }
 
   function toggleMarket(market: string) {
-    setMarkets((prev) => (prev.includes(market) ? prev.filter((m) => m !== market) : [...prev, market]));
+    setMarkets((prev) => {
+      if (market === ALL_MARKETS) return [ALL_MARKETS];
+      const withoutAll = prev.filter((m) => m !== ALL_MARKETS);
+      return withoutAll.includes(market)
+        ? withoutAll.filter((m) => m !== market)
+        : [...withoutAll, market];
+    });
   }
 
   async function handleCreate() {
@@ -207,7 +217,7 @@ export default function CreateLibraryItemScreen() {
     }
 
     let postDate: number | undefined;
-    if (isDirectory && isScheduled) {
+    if (isScheduled) {
       const ms = parseScheduledDateTime(scheduleDate, scheduleTime, timezone);
       if (ms === null) {
         Alert.alert("Invalid schedule", "Please pick a valid date and time.");
@@ -230,6 +240,8 @@ export default function CreateLibraryItemScreen() {
         markets,
         nonChinaVideoLink: nonChinaVideoLink.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
+        postDate,
+        selectedZone: isScheduled ? timezone : undefined,
         allowRetweet: true,
         mustRead: false,
         toUpline: true,
@@ -238,11 +250,7 @@ export default function CreateLibraryItemScreen() {
         toCustom: false,
       };
       const itemId = isDirectory
-        ? await createLibraryItem({
-            ...commonArgs,
-            postDate,
-            selectedZone: isScheduled ? timezone : undefined,
-          })
+        ? await createLibraryItem(commonArgs)
         : await createKnowledgeHubItem(commonArgs);
       router.replace(
         isDirectory ? `/(app)/directory/item/${itemId}` : `/(app)/library/${itemId}`
@@ -301,6 +309,14 @@ export default function CreateLibraryItemScreen() {
 
         <Text style={styles.label}>Language *</Text>
         <View style={styles.tagList}>
+          <TouchableOpacity
+            style={[styles.chip, languages.includes(ALL_LANGUAGES) && styles.chipActive]}
+            onPress={() => toggleLanguage(ALL_LANGUAGES)}
+          >
+            <Text style={[styles.chipText, languages.includes(ALL_LANGUAGES) && styles.chipTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
           {LANGUAGES.map((language) => (
             <TouchableOpacity
               key={language}
@@ -316,6 +332,14 @@ export default function CreateLibraryItemScreen() {
 
         <Text style={styles.label}>Market *</Text>
         <View style={styles.tagList}>
+          <TouchableOpacity
+            style={[styles.chip, markets.includes(ALL_MARKETS) && styles.chipActive]}
+            onPress={() => toggleMarket(ALL_MARKETS)}
+          >
+            <Text style={[styles.chipText, markets.includes(ALL_MARKETS) && styles.chipTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
           {MARKETS.map((market) => (
             <TouchableOpacity
               key={market}
@@ -363,39 +387,35 @@ export default function CreateLibraryItemScreen() {
           </View>
         )}
 
-        {isDirectory && (
-          <>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Schedule Post</Text>
-              <Switch value={isScheduled} onValueChange={setIsScheduled} trackColor={{ true: "#1C1B18" }} />
-            </View>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>Schedule Post</Text>
+          <Switch value={isScheduled} onValueChange={setIsScheduled} trackColor={{ true: "#1C1B18" }} />
+        </View>
 
-            {isScheduled && (
-              <View style={styles.scheduleBox}>
-                <Text style={styles.label}>Date</Text>
-                <TouchableOpacity style={styles.input} onPress={() => setDatePickerVisible(true)}>
-                  <Text style={scheduleDate ? styles.scheduleValue : styles.schedulePlaceholder}>
-                    {scheduleDate || "Select a date"}
-                  </Text>
-                </TouchableOpacity>
+        {isScheduled && (
+          <View style={styles.scheduleBox}>
+            <Text style={styles.label}>Date</Text>
+            <TouchableOpacity style={styles.input} onPress={() => setDatePickerVisible(true)}>
+              <Text style={scheduleDate ? styles.scheduleValue : styles.schedulePlaceholder}>
+                {scheduleDate || "Select a date"}
+              </Text>
+            </TouchableOpacity>
 
-                <Text style={styles.label}>Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={scheduleTime}
-                  onChangeText={setScheduleTime}
-                  placeholder="HH:MM (24-hour)"
-                  placeholderTextColor="#aaa"
-                  keyboardType="numbers-and-punctuation"
-                />
+            <Text style={styles.label}>Time</Text>
+            <TextInput
+              style={styles.input}
+              value={scheduleTime}
+              onChangeText={setScheduleTime}
+              placeholder="HH:MM (24-hour)"
+              placeholderTextColor="#aaa"
+              keyboardType="numbers-and-punctuation"
+            />
 
-                <Text style={styles.label}>Timezone</Text>
-                <TouchableOpacity style={styles.input} onPress={() => setZonePickerVisible(true)}>
-                  <Text style={styles.scheduleValue}>{timezone}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </>
+            <Text style={styles.label}>Timezone</Text>
+            <TouchableOpacity style={styles.input} onPress={() => setZonePickerVisible(true)}>
+              <Text style={styles.scheduleValue}>{timezone}</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         <TouchableOpacity style={styles.submitBtn} onPress={handleCreate} disabled={submitting || uploading}>

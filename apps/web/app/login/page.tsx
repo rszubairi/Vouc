@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { StoreBadges } from "../../components/StoreBadges";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,6 +51,16 @@ export default function LoginPage() {
         <div className="animate-drift-b absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-[#F5EFE0] blur-3xl" />
         <div className="animate-drift-c absolute -bottom-32 left-1/4 w-80 h-80 rounded-full bg-[#F2650C]/10 blur-3xl" />
       </div>
+
+      <Link
+        href="/"
+        className="relative mb-6 text-sm font-medium text-black/50 hover:text-black transition-colors flex items-center gap-1.5"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5M11 18l-6-6 6-6" />
+        </svg>
+        Back to Vouch
+      </Link>
 
       <div className="relative w-full max-w-sm bg-[#F5EFE0] border border-black/10 rounded-xl p-8 shadow-xl">
         <h1 className="text-2xl font-bold text-black mb-1">Vouch Admin</h1>
@@ -145,8 +154,12 @@ export default function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-sm mt-8 flex flex-col items-center gap-4">
-        <p className="text-xs text-gray-500">Get the Vouch mobile app</p>
-        <StoreBadges />
+        <p className="text-xs text-gray-500">
+          Don&apos;t have the app yet?{" "}
+          <Link href="/" className="text-black font-semibold hover:underline">
+            Download it here
+          </Link>
+        </p>
         <p className="text-xs text-gray-500 flex items-center gap-2">
           <Link href="/privacy-policy" className="hover:text-black transition-colors">
             Privacy Policy

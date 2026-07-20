@@ -28,3 +28,61 @@
 .animate-drift-c {
   animation: drift-c 24s ease-in-out infinite;
 }
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 14s linear infinite;
+}
+
+@keyframes spin-slow-reverse {
+  to { transform: rotate(-360deg); }
+}
+
+.animate-spin-slow-reverse {
+  animation: spin-slow-reverse 18s linear infinite;
+}
+
+@keyframes line-draw {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  15% { opacity: 1; }
+  60% { stroke-dashoffset: 0; opacity: 1; }
+  85% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+.animate-line-draw {
+  stroke-dasharray: 1;
+  animation: line-draw 5s ease-in-out infinite;
+}
+
+@keyframes node-pulse {
+  0%, 100% { r: 4; opacity: 0.85; }
+  50% { r: 6; opacity: 1; }
+}
+
+.animate-node-pulse {
+  animation: node-pulse 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float-y {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s ease-out both;
+}

@@ -19,6 +19,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { api } from "../../../../../../convex/_generated/api";
 import { Id } from "../../../../../../convex/_generated/dataModel";
+import { ImageViewerModal } from "../../../../components/ImageViewerModal";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -42,6 +43,7 @@ export default function DirectoryItemDetailScreen() {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
 
   if (item === undefined || me === undefined) {
     return <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />;
@@ -162,7 +164,9 @@ export default function DirectoryItemDetailScreen() {
       <Text style={styles.description}>{item.description}</Text>
 
       {item.images.map((url: string, i: number) => (
-        <Image key={i} source={{ uri: url }} style={styles.image} resizeMode="cover" />
+        <TouchableOpacity key={i} onPress={() => setViewerImage(url)}>
+          <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
+        </TouchableOpacity>
       ))}
 
       {item.nonChinaVideoLink && (
@@ -243,7 +247,9 @@ export default function DirectoryItemDetailScreen() {
                   <Text style={styles.commentText}>{c.comment}</Text>
                   {c.attachments.map((a, i) =>
                     a.kind === "image" ? (
-                      <Image key={i} source={{ uri: a.url }} style={styles.commentImage} resizeMode="cover" />
+                      <TouchableOpacity key={i} onPress={() => setViewerImage(a.url)}>
+                        <Image source={{ uri: a.url }} style={styles.commentImage} resizeMode="cover" />
+                      </TouchableOpacity>
                     ) : (
                       <TouchableOpacity key={i} onPress={() => Linking.openURL(a.url)} style={styles.commentDocRow}>
                         <Text style={styles.docText}>📄 {a.name}</Text>
@@ -303,6 +309,7 @@ export default function DirectoryItemDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
+      <ImageViewerModal uri={viewerImage} visible={viewerImage !== null} onClose={() => setViewerImage(null)} />
     </ScrollView>
   );
 }

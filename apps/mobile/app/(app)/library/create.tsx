@@ -91,6 +91,10 @@ export default function CreateLibraryItemScreen() {
     categoryId?: string;
   }>();
   const isDirectory = source === "directory";
+  // Knowledge Hub lets users pick a category up front from "All", but once
+  // they've drilled into a specific category and hit +, that category is
+  // fixed — no picker, matches Directory's single-category behavior.
+  const hasPresetCategory = !isDirectory && !!paramCategoryId;
   const navigation = useNavigation();
 
   useLayoutEffect(() => {
@@ -99,10 +103,18 @@ export default function CreateLibraryItemScreen() {
     }
   }, [isDirectory, navigation]);
 
-  // Directory items inherit their single category from the page they were
-  // created from (see categoryIds below) — no picker needed, so the
-  // category list is only fetched for the Knowledge Hub multi-select.
-  const categories = useQuery(api.categories.list, isDirectory ? "skip" : { scope: "knowledgeHub" });
+  // Directory items, and Knowledge Hub items created from within a specific
+  // category, inherit their single category from the page they were created
+  // from (see categoryIds below) — no picker needed. The category list is
+  // only fetched when Knowledge Hub still needs the user to pick one.
+  const categories = useQuery(
+    api.categories.list,
+    isDirectory || hasPresetCategory ? "skip" : { scope: "knowledgeHub" }
+  );
+  const presetCategory = useQuery(
+    api.categories.get,
+    hasPresetCategory ? { id: paramCategoryId as Id<"categories"> } : "skip"
+  );
   const createLibraryItem = useMutation(api.library.createLibraryItem);
   const createKnowledgeHubItem = useMutation(api.knowledgeHub.createItem);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
@@ -290,7 +302,18 @@ export default function CreateLibraryItemScreen() {
           textAlignVertical="top"
         />
 
-        {!isDirectory && (
+        {!isDirectory && hasPresetCategory && (
+          <>
+            <Text style={styles.label}>Category</Text>
+            <View style={[styles.chip, styles.chipActive, styles.chipLocked]}>
+              <Text style={[styles.chipText, styles.chipTextActive]}>
+                {presetCategory?.name ?? "Loading..."}
+              </Text>
+            </View>
+          </>
+        )}
+
+        {!isDirectory && !hasPresetCategory && (
           <>
             <Text style={styles.label}>Category (optional)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
@@ -521,6 +544,7 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
   },
   chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
+  chipLocked: { alignSelf: "flex-start" },
   chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
   chipTextActive: { color: "#fff" },
   attachRow: { flexDirection: "row", gap: 10, alignItems: "center" },

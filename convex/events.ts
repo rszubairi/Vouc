@@ -61,6 +61,36 @@ async function attachmentsFor(ctx: any, eventId: Id<"events">) {
   return attachments;
 }
 
+async function languagesFor(ctx: any, eventId: Id<"events">) {
+  const rows = await ctx.db
+    .query("eventLanguages")
+    .withIndex("by_eventId", (q: any) => q.eq("eventId", eventId))
+    .collect();
+  return rows.map((r: any) => r.language);
+}
+
+async function marketsFor(ctx: any, eventId: Id<"events">) {
+  const rows = await ctx.db
+    .query("eventMarkets")
+    .withIndex("by_eventId", (q: any) => q.eq("eventId", eventId))
+    .collect();
+  return rows.map((r: any) => r.market);
+}
+
+// A caller with no language/market preference (empty array = "follow ALL")
+// sees everything. Otherwise an item is visible if it has no targeting rows
+// (legacy items predating this feature) or shares at least one value with
+// the caller's preference.
+function matchesPreference(callerPrefs: string[], itemValues: string[]) {
+  if (callerPrefs.length === 0) return true;
+  if (itemValues.length === 0) return true;
+  return itemValues.some((v) => callerPrefs.includes(v));
+}
+
+// "ALL" is a sentinel the client sends to mean "no language/market
+// targeting" — such items are visible to everyone (see matchesPreference).
+const ALL_SENTINEL = "ALL";
+
 async function getCallerProfile(ctx: any) {
   const authUserId = await getAuthUserId(ctx);
   if (!authUserId) throw new Error("Not authenticated");
@@ -147,6 +177,8 @@ export const createEvent = mutation({
     selectedZone: v.optional(v.string()),
     chinaVideoLink: v.optional(v.string()),
     nonChinaVideoLink: v.optional(v.string()),
+    languages: v.array(v.string()),
+    markets: v.array(v.string()),
     noPayment: v.boolean(),
     allowRetweet: v.boolean(),
     mustRead: v.boolean(),
@@ -163,6 +195,9 @@ export const createEvent = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await getCallerProfile(ctx);
+
+    if (args.languages.length === 0) throw new Error("Select at least one language to target.");
+    if (args.markets.length === 0) throw new Error("Select at least one market to target.");
 
     const eventId = await ctx.db.insert("events", {
       userId: profile._id,
@@ -200,6 +235,17 @@ export const createEvent = mutation({
 
     await saveAttachments(ctx, profile._id, eventId, args.attachments);
 
+    if (!args.languages.includes(ALL_SENTINEL)) {
+      for (const language of args.languages) {
+        await ctx.db.insert("eventLanguages", { eventId, language });
+      }
+    }
+    if (!args.markets.includes(ALL_SENTINEL)) {
+      for (const market of args.markets) {
+        await ctx.db.insert("eventMarkets", { eventId, market });
+      }
+    }
+
     await distributeEvent(ctx, eventId, profile, args);
 
     return eventId;
@@ -221,6 +267,19 @@ export const calendarEvents = query({
       .first();
     if (!callerProfile || callerProfile.deleteAccount || callerProfile.isDisabled) return [];
 
+    const callerLanguages = (
+      await ctx.db
+        .query("profileLanguages")
+        .withIndex("by_profileId", (q) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r) => r.language);
+    const callerMarkets = (
+      await ctx.db
+        .query("profileMarkets")
+        .withIndex("by_profileId", (q) => q.eq("profileId", callerProfile._id))
+        .collect()
+    ).map((r) => r.market);
+
     let eventIds: Set<Id<"events">>;
     if (callerProfile.fullAccess) {
       // Full-access accounts see every event regardless of visibility records.
@@ -239,6 +298,10 @@ export const calendarEvents = query({
       const event = await ctx.db.get(eventId);
       if (!event || event.isDeleted) continue;
       if (event.eventDateStart < startDate || event.eventDateStart > endDate) continue;
+      const itemLanguages = await languagesFor(ctx, eventId);
+      const itemMarkets = await marketsFor(ctx, eventId);
+      if (!matchesPreference(callerLanguages, itemLanguages)) continue;
+      if (!matchesPreference(callerMarkets, itemMarkets)) continue;
       results.push(event);
     }
 
@@ -292,6 +355,8 @@ export const getEvent = query({
       likeCount: metas.filter((m) => m.type === "Like").length,
       commentCount: metas.filter((m) => m.type === "Comment").length,
       attachments: await attachmentsFor(ctx, eventId),
+      languages: await languagesFor(ctx, eventId),
+      markets: await marketsFor(ctx, eventId),
       isHost,
     };
   },

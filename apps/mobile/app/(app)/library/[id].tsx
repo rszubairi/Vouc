@@ -9,10 +9,12 @@ import {
   Alert,
   Linking,
 } from "react-native";
+import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { ImageViewerModal } from "../../../components/ImageViewerModal";
 
 export default function LibraryItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,6 +23,7 @@ export default function LibraryItemDetailScreen() {
   const item = useQuery(api.knowledgeHub.getItem, id ? { itemId: id as Id<"knowledgeHubItems"> } : "skip");
   const deleteLibraryItem = useMutation(api.knowledgeHub.deleteItem);
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
 
   if (item === undefined || me === undefined) {
     return <ActivityIndicator style={styles.loader} size="large" color="#1C1B18" />;
@@ -68,7 +71,9 @@ export default function LibraryItemDetailScreen() {
       <Text style={styles.description}>{item.description}</Text>
 
       {item.images.map((url: string, i: number) => (
-        <Image key={i} source={{ uri: url }} style={styles.image} resizeMode="cover" />
+        <TouchableOpacity key={i} onPress={() => setViewerImage(url)}>
+          <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
+        </TouchableOpacity>
       ))}
 
       {item.nonChinaVideoLink && (
@@ -111,6 +116,7 @@ export default function LibraryItemDetailScreen() {
           <Text style={styles.deleteBtnText}>Delete Item</Text>
         </TouchableOpacity>
       )}
+      <ImageViewerModal uri={viewerImage} visible={viewerImage !== null} onClose={() => setViewerImage(null)} />
     </ScrollView>
   );
 }

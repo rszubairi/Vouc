@@ -243,7 +243,12 @@ export default function LibraryScreen() {
 
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push("/(app)/library/create")}
+        onPress={() =>
+          router.push({
+            pathname: "/(app)/library/create",
+            params: { categoryId: selectedCategoryId as string },
+          })
+        }
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>

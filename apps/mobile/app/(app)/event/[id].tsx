@@ -233,6 +233,12 @@ export default function EventDetailScreen() {
         </Text>
       </View>
       {event.selectedZone && <Text style={styles.metaText}>Timezone: {event.selectedZone}</Text>}
+      {event.languages.length > 0 && (
+        <Text style={styles.metaText}>Languages: {event.languages.join(", ")}</Text>
+      )}
+      {event.markets.length > 0 && (
+        <Text style={styles.metaText}>Markets: {event.markets.join(", ")}</Text>
+      )}
 
       <Text style={styles.details}>{event.details}</Text>
 

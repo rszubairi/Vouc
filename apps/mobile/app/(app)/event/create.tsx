@@ -24,6 +24,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { IANA_TIMEZONES } from "../../../constants/timezones";
 import { EVENT_TYPES } from "../../../constants/eventTypes";
+import { LANGUAGES, ALL_LANGUAGES } from "../../../constants/languages";
+import { MARKETS, ALL_MARKETS } from "../../../constants/markets";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const TIMEZONES: string[] =
@@ -69,6 +71,9 @@ export default function CreateEventScreen() {
   const [zonePickerVisible, setZonePickerVisible] = useState(false);
   const [zoneSearch, setZoneSearch] = useState("");
 
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [markets, setMarkets] = useState<string[]>([]);
+
   const [noPayment, setNoPayment] = useState(true);
   const [hostIds, setHostIds] = useState<Id<"profiles">[]>([]);
   const [hostPickerVisible, setHostPickerVisible] = useState(false);
@@ -80,6 +85,26 @@ export default function CreateEventScreen() {
 
   function toggleEventType(t: string) {
     setEventTypes((prev) => (prev.includes(t) ? prev.filter((et) => et !== t) : [...prev, t]));
+  }
+
+  function toggleLanguage(language: string) {
+    setLanguages((prev) => {
+      if (language === ALL_LANGUAGES) return [ALL_LANGUAGES];
+      const withoutAll = prev.filter((l) => l !== ALL_LANGUAGES);
+      return withoutAll.includes(language)
+        ? withoutAll.filter((l) => l !== language)
+        : [...withoutAll, language];
+    });
+  }
+
+  function toggleMarket(market: string) {
+    setMarkets((prev) => {
+      if (market === ALL_MARKETS) return [ALL_MARKETS];
+      const withoutAll = prev.filter((m) => m !== ALL_MARKETS);
+      return withoutAll.includes(market)
+        ? withoutAll.filter((m) => m !== market)
+        : [...withoutAll, market];
+    });
   }
 
   async function uploadAsset(uri: string, mimeType: string | undefined, fileName: string | undefined, kind: "image" | "file") {
@@ -154,6 +179,14 @@ export default function CreateEventScreen() {
       Alert.alert("Invalid dates", "End time must be after start time.");
       return;
     }
+    if (languages.length === 0) {
+      Alert.alert("Missing info", "Please select at least one language to target.");
+      return;
+    }
+    if (markets.length === 0) {
+      Alert.alert("Missing info", "Please select at least one market to target.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -166,6 +199,8 @@ export default function CreateEventScreen() {
         eventDateStart: start,
         eventDateEnd: end,
         selectedZone: timezone,
+        languages,
+        markets,
         noPayment,
         allowRetweet: true,
         mustRead: false,
@@ -227,6 +262,52 @@ export default function CreateEventScreen() {
           placeholderTextColor="#aaa"
           multiline
         />
+
+        <Text style={styles.label}>Language *</Text>
+        <View style={styles.chipRow}>
+          <TouchableOpacity
+            style={[styles.chip, languages.includes(ALL_LANGUAGES) && styles.chipActive]}
+            onPress={() => toggleLanguage(ALL_LANGUAGES)}
+          >
+            <Text style={[styles.chipText, languages.includes(ALL_LANGUAGES) && styles.chipTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
+          {LANGUAGES.map((language) => (
+            <TouchableOpacity
+              key={language}
+              style={[styles.chip, languages.includes(language) && styles.chipActive]}
+              onPress={() => toggleLanguage(language)}
+            >
+              <Text style={[styles.chipText, languages.includes(language) && styles.chipTextActive]}>
+                {language}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Market *</Text>
+        <View style={styles.chipRow}>
+          <TouchableOpacity
+            style={[styles.chip, markets.includes(ALL_MARKETS) && styles.chipActive]}
+            onPress={() => toggleMarket(ALL_MARKETS)}
+          >
+            <Text style={[styles.chipText, markets.includes(ALL_MARKETS) && styles.chipTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
+          {MARKETS.map((market) => (
+            <TouchableOpacity
+              key={market}
+              style={[styles.chip, markets.includes(market) && styles.chipActive]}
+              onPress={() => toggleMarket(market)}
+            >
+              <Text style={[styles.chipText, markets.includes(market) && styles.chipTextActive]}>
+                {market}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Text style={styles.label}>Event Host(s)</Text>
         <TouchableOpacity style={styles.input} onPress={() => setHostPickerVisible(true)}>

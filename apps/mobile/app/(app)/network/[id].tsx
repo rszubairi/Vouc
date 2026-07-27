@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -38,6 +38,7 @@ function formatMemberSince(creationTime: number) {
 
 export default function MemberProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const profile = useQuery(api.profiles.getById, id ? { profileId: id as Id<"profiles"> } : "skip");
 
   if (profile === undefined) {
@@ -90,14 +91,18 @@ export default function MemberProfileScreen() {
 
       {profile.sponsorName ? (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sponsor</Text>
-          <View style={styles.metaRow}>
+          <Text style={styles.cardTitle}>Vouched By</Text>
+          <TouchableOpacity
+            style={styles.metaRow}
+            disabled={!profile.sponsorId}
+            onPress={() => router.push(`/(app)/network/${profile.sponsorId}`)}
+          >
             <Ionicons name="person-outline" size={14} color="#999" />
-            <Text style={styles.subText}>
+            <Text style={[styles.subText, profile.sponsorId && styles.linkText]}>
               {profile.sponsorName}
               {!profile.sponsorApproved ? " (pending approval)" : ""}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
       ) : null}
 
@@ -196,6 +201,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 21, fontWeight: "800", color: "#1C1B18" },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
   subText: { fontSize: 14, color: "#777" },
+  linkText: { color: "#F2650C", fontWeight: "600" },
   sinceBadge: {
     flexDirection: "row",
     alignItems: "center",

@@ -28,6 +28,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { WEB_APP_URL } from "../../../constants/links";
+import { ImageViewerModal } from "../../../components/ImageViewerModal";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -35,7 +36,7 @@ type PendingAttachment = {
   fileName?: string;
 };
 
-function ImageCarousel({ images }: { images: string[] }) {
+function ImageCarousel({ images, onImagePress }: { images: string[]; onImagePress: (uri: string) => void }) {
   const { width } = useWindowDimensions();
   const carouselWidth = width - 32; // matches screen horizontal padding
   const [activeIndex, setActiveIndex] = useState(0);
@@ -60,12 +61,14 @@ function ImageCarousel({ images }: { images: string[] }) {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         renderItem={({ item }) => (
-          <Image
-            source={{ uri: item }}
-            style={[styles.image, { width: carouselWidth }]}
-            contentFit="cover"
-            transition={200}
-          />
+          <TouchableOpacity activeOpacity={0.9} onPress={() => onImagePress(item)}>
+            <Image
+              source={{ uri: item }}
+              style={[styles.image, { width: carouselWidth }]}
+              contentFit="cover"
+              transition={200}
+            />
+          </TouchableOpacity>
         )}
       />
       {images.length > 1 && (
@@ -129,6 +132,7 @@ export default function DiscussionDetailScreen() {
   const [uploading, setUploading] = useState(false);
   const [renamingDocId, setRenamingDocId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
 
   // Local overrides so like/endorse/star buttons flip color instantly
   // instead of waiting on the round trip + query re-subscription.
@@ -379,7 +383,7 @@ export default function DiscussionDetailScreen() {
       )}
 
       {/* Images */}
-      <ImageCarousel images={discussion.images} />
+      <ImageCarousel images={discussion.images} onImagePress={setViewerImage} />
       <FileAttachments
         files={discussion.attachments.filter((a: any) => a.kind === "file")}
         canRename={discussion.isOwner}
@@ -451,7 +455,9 @@ export default function DiscussionDetailScreen() {
                 <View style={styles.replyAttachments}>
                   {c.attachments.map((a: any, i: number) =>
                     a.kind === "image" ? (
-                      <Image key={i} source={{ uri: a.url }} style={styles.replyImage} contentFit="cover" />
+                      <TouchableOpacity key={i} onPress={() => setViewerImage(a.url)}>
+                        <Image source={{ uri: a.url }} style={styles.replyImage} contentFit="cover" />
+                      </TouchableOpacity>
                     ) : (
                       <TouchableOpacity key={i} style={styles.fileRow} onPress={() => RNLinking.openURL(a.url)}>
                         <Ionicons name="document-outline" size={14} color="#1C1B18" />
@@ -533,6 +539,7 @@ export default function DiscussionDetailScreen() {
         </View>
       </View>
     )}
+    <ImageViewerModal uri={viewerImage} visible={viewerImage !== null} onClose={() => setViewerImage(null)} />
     </KeyboardAvoidingView>
   );
 }

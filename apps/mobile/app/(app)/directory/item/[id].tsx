@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Share,
 } from "react-native";
 import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -20,6 +21,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { api } from "../../../../../../convex/_generated/api";
 import { Id } from "../../../../../../convex/_generated/dataModel";
 import { ImageViewerModal } from "../../../../components/ImageViewerModal";
+import { WEB_APP_URL } from "../../../../constants/links";
+import { toExcerpt } from "../../../../utils/text";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -127,6 +130,17 @@ export default function DirectoryItemDetailScreen() {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }
 
+  async function handleShare() {
+    const webLink = `${WEB_APP_URL}/share/directory/${id}`;
+    const excerpt = toExcerpt(item!.description);
+    const message = `${item!.title}\n\n${excerpt}\n\n${webLink}`;
+    try {
+      await Share.share({ message, title: item!.title || "Vouch Directory Item" });
+    } catch {
+      // user dismissed the native share sheet — nothing to do
+    }
+  }
+
   async function handleAddComment() {
     if (!commentText.trim()) return;
     try {
@@ -213,6 +227,11 @@ export default function DirectoryItemDetailScreen() {
             color={item.isStarred ? "#F2650C" : "#666"}
           />
           <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>{item.starCount}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.statItem} onPress={handleShare}>
+          <Ionicons name="share-outline" size={18} color="#666" />
+          <Text style={styles.statText}>Share</Text>
         </TouchableOpacity>
       </View>
 

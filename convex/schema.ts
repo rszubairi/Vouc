@@ -485,6 +485,7 @@ export default defineSchema(
       userId: v.id("profiles"),
       type: v.union(v.literal("Like"), v.literal("Endorse"), v.literal("Comment")),
       comment: v.optional(v.string()),
+      commentDate: v.optional(v.number()),
     }).index("by_knowledgeHubItemId", ["knowledgeHubItemId"]),
 
     knowledgeHubVisibilities: defineTable({

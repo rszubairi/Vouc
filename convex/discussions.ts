@@ -365,6 +365,42 @@ export const list = query({
 });
 
 // Full detail of a single discussion.
+export async function getDiscussionReplies(ctx: any, discussionId: Id<"discussions">) {
+  const replyDocs = await ctx.db
+    .query("discussionReplies")
+    .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
+    .filter((q: any) => q.eq(q.field("isDeleted"), false))
+    .collect();
+
+  const replies = [];
+  for (const r of replyDocs.sort((a: any, b: any) => a.replyDate - b.replyDate)) {
+    const replier = await ctx.db.get(r.userId);
+    const imageRows = await ctx.db
+      .query("discussionReplyImages")
+      .withIndex("by_replyId", (q: any) => q.eq("replyId", r._id))
+      .collect();
+    const fileRows = await ctx.db
+      .query("discussionReplyFiles")
+      .withIndex("by_replyId", (q: any) => q.eq("replyId", r._id))
+      .collect();
+    const replyAttachments: Array<{ kind: "image" | "file"; url: string; name?: string }> = [];
+    for (const row of imageRows) {
+      const img = await ctx.db.get(row.imageId);
+      if (img) replyAttachments.push({ kind: "image", url: img.url });
+    }
+    for (const row of fileRows) {
+      const doc = await ctx.db.get(row.documentId);
+      if (doc) replyAttachments.push({ kind: "file", url: doc.url, name: doc.name });
+    }
+    replies.push({
+      ...r,
+      replierNickName: replier?.nickName ?? "",
+      attachments: replyAttachments,
+    });
+  }
+  return replies;
+}
+
 export const getDiscussion = query({
   args: { discussionId: v.id("discussions") },
   handler: async (ctx, { discussionId }) => {
@@ -407,38 +443,7 @@ export const getDiscussion = query({
       .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
       .collect();
 
-    const replyDocs = await ctx.db
-      .query("discussionReplies")
-      .withIndex("by_discussionId", (q: any) => q.eq("discussionId", discussionId))
-      .filter((q: any) => q.eq(q.field("isDeleted"), false))
-      .collect();
-
-    const replies = [];
-    for (const r of replyDocs.sort((a: any, b: any) => a.replyDate - b.replyDate)) {
-      const replier = await ctx.db.get(r.userId);
-      const imageRows = await ctx.db
-        .query("discussionReplyImages")
-        .withIndex("by_replyId", (q: any) => q.eq("replyId", r._id))
-        .collect();
-      const fileRows = await ctx.db
-        .query("discussionReplyFiles")
-        .withIndex("by_replyId", (q: any) => q.eq("replyId", r._id))
-        .collect();
-      const replyAttachments: Array<{ kind: "image" | "file"; url: string; name?: string }> = [];
-      for (const row of imageRows) {
-        const img = await ctx.db.get(row.imageId);
-        if (img) replyAttachments.push({ kind: "image", url: img.url });
-      }
-      for (const row of fileRows) {
-        const doc = await ctx.db.get(row.documentId);
-        if (doc) replyAttachments.push({ kind: "file", url: doc.url, name: doc.name });
-      }
-      replies.push({
-        ...r,
-        replierNickName: replier?.nickName ?? "",
-        attachments: replyAttachments,
-      });
-    }
+    const replies = await getDiscussionReplies(ctx, discussionId);
 
     const followers = await ctx.db
       .query("discussionFollowers")

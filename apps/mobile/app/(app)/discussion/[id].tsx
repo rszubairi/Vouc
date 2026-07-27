@@ -29,6 +29,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { WEB_APP_URL } from "../../../constants/links";
 import { ImageViewerModal } from "../../../components/ImageViewerModal";
+import { toExcerpt } from "../../../utils/text";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -268,9 +269,10 @@ export default function DiscussionDetailScreen() {
 
   async function handleShare() {
     const appLink = Linking.createURL(`discussion/${id}`);
-    const webLink = `${WEB_APP_URL}/app?discussion=${id}`;
-    const message = discussion?.topic ? `${discussion.topic}\n\n${discussion.details}` : discussion?.details ?? "";
-    const fullMessage = `${message}\n\n${appLink}\n\nDon't have Vouch yet? ${webLink}`;
+    const webLink = `${WEB_APP_URL}/share/discussion/${id}`;
+    const excerpt = discussion?.details ? toExcerpt(discussion.details) : "";
+    const message = discussion?.topic ? `${discussion.topic}\n\n${excerpt}` : excerpt;
+    const fullMessage = `${message}\n\n${webLink}\n\nAlready have Vouch? ${appLink}`;
     try {
       await Share.share({ message: fullMessage, title: discussion?.topic || "Vouch Discussion" });
     } catch {

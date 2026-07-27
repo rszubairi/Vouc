@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL ?? "",
   },
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**.convex.cloud", pathname: "/api/storage/**" },
+    ],
+  },
 };
 
 export default nextConfig;

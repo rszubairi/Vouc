@@ -390,3 +390,42 @@ export const deleteItem = mutation({
     await ctx.db.patch(itemId, { isDeleted: true });
   },
 });
+
+export async function getKnowledgeHubComments(ctx: any, itemId: Id<"knowledgeHubItems">) {
+  const metas = await ctx.db
+    .query("knowledgeHubItemMetas")
+    .withIndex("by_knowledgeHubItemId", (q: any) => q.eq("knowledgeHubItemId", itemId))
+    .collect();
+  const comments = metas
+    .filter((m: any) => m.type === "Comment")
+    .sort((a: any, b: any) => (a.commentDate ?? 0) - (b.commentDate ?? 0));
+
+  const results = [];
+  for (const c of comments) {
+    const commenter = await ctx.db.get(c.userId);
+    const commenterImage = commenter
+      ? await ctx.db
+          .query("profileImages")
+          .withIndex("by_profileId", (q: any) => q.eq("profileId", commenter._id))
+          .filter((q: any) => q.eq(q.field("isPrimary"), true))
+          .first()
+      : null;
+    const commenterProfileImageUrl = commenterImage
+      ? (await ctx.db.get(commenterImage.imageId))?.url ?? null
+      : null;
+
+    results.push({
+      _id: c._id,
+      comment: c.comment ?? "",
+      commentDate: c.commentDate ?? 0,
+      commenterNickName: commenter?.nickName ?? "",
+      commenterProfileImageUrl,
+    });
+  }
+  return results;
+}
+
+export const listComments = query({
+  args: { itemId: v.id("knowledgeHubItems") },
+  handler: async (ctx, { itemId }) => getKnowledgeHubComments(ctx, itemId),
+});

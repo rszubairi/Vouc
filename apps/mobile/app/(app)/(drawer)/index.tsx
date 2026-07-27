@@ -23,6 +23,7 @@ import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 import { WEB_APP_URL } from "../../../constants/links";
 import { ScheduledBadge } from "../../../components/ScheduledBadge";
+import { toExcerpt } from "../../../utils/text";
 
 const DISCUSSION_CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   "Business Opportunities": "briefcase-outline",
@@ -79,9 +80,10 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
 
   async function handleShare() {
     const appLink = Linking.createURL(`discussion/${discussion._id}`);
-    const webLink = `${WEB_APP_URL}/app?discussion=${discussion._id}`;
-    const message = discussion.topic ? `${discussion.topic}\n\n${discussion.details}` : discussion.details;
-    const fullMessage = `${message}\n\n${appLink}\n\nDon't have Vouch yet? ${webLink}`;
+    const webLink = `${WEB_APP_URL}/share/discussion/${discussion._id}`;
+    const excerpt = toExcerpt(discussion.details);
+    const message = discussion.topic ? `${discussion.topic}\n\n${excerpt}` : excerpt;
+    const fullMessage = `${message}\n\n${webLink}\n\nAlready have Vouch? ${appLink}`;
     try {
       await Share.share(
         Platform.OS === "ios"

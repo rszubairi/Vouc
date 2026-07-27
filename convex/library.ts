@@ -436,60 +436,62 @@ export const deleteLibraryItem = mutation({
   },
 });
 
+export async function getLibraryComments(ctx: any, itemId: Id<"libraryItems">) {
+  const metas = await ctx.db
+    .query("libraryItemMetas")
+    .withIndex("by_libraryItemId", (q: any) => q.eq("libraryItemId", itemId))
+    .collect();
+  const comments = metas
+    .filter((m: any) => m.type === "Comment")
+    .sort((a: any, b: any) => (a.commentDate ?? 0) - (b.commentDate ?? 0));
+
+  const results = [];
+  for (const c of comments) {
+    const commenter = await ctx.db.get(c.userId);
+    const commenterImage = commenter
+      ? await ctx.db
+          .query("profileImages")
+          .withIndex("by_profileId", (q: any) => q.eq("profileId", commenter._id))
+          .filter((q: any) => q.eq(q.field("isPrimary"), true))
+          .first()
+      : null;
+    const commenterProfileImageUrl = commenterImage
+      ? (await ctx.db.get(commenterImage.imageId))?.url ?? null
+      : null;
+
+    const imageRows = await ctx.db
+      .query("libraryCommentImages")
+      .withIndex("by_commentId", (q: any) => q.eq("commentId", c._id))
+      .collect();
+    const fileRows = await ctx.db
+      .query("libraryCommentFiles")
+      .withIndex("by_commentId", (q: any) => q.eq("commentId", c._id))
+      .collect();
+    const attachments: Array<{ kind: "image" | "file"; url: string; name?: string }> = [];
+    for (const row of imageRows.sort((a: any, b: any) => a.order - b.order)) {
+      const img = await ctx.db.get(row.imageId);
+      if (img) attachments.push({ kind: "image", url: img.url });
+    }
+    for (const row of fileRows.sort((a: any, b: any) => a.order - b.order)) {
+      const doc = await ctx.db.get(row.documentId);
+      if (doc) attachments.push({ kind: "file", url: doc.url, name: doc.name });
+    }
+
+    results.push({
+      _id: c._id,
+      comment: c.comment ?? "",
+      commentDate: c.commentDate ?? 0,
+      commenterNickName: commenter?.nickName ?? "",
+      commenterProfileImageUrl,
+      attachments,
+    });
+  }
+  return results;
+}
+
 export const listComments = query({
   args: { itemId: v.id("libraryItems") },
-  handler: async (ctx, { itemId }) => {
-    const metas = await ctx.db
-      .query("libraryItemMetas")
-      .withIndex("by_libraryItemId", (q) => q.eq("libraryItemId", itemId))
-      .collect();
-    const comments = metas
-      .filter((m) => m.type === "Comment")
-      .sort((a, b) => (a.commentDate ?? 0) - (b.commentDate ?? 0));
-
-    const results = [];
-    for (const c of comments) {
-      const commenter = await ctx.db.get(c.userId);
-      const commenterImage = commenter
-        ? await ctx.db
-            .query("profileImages")
-            .withIndex("by_profileId", (q) => q.eq("profileId", commenter._id))
-            .filter((q) => q.eq(q.field("isPrimary"), true))
-            .first()
-        : null;
-      const commenterProfileImageUrl = commenterImage
-        ? (await ctx.db.get(commenterImage.imageId))?.url ?? null
-        : null;
-
-      const imageRows = await ctx.db
-        .query("libraryCommentImages")
-        .withIndex("by_commentId", (q) => q.eq("commentId", c._id))
-        .collect();
-      const fileRows = await ctx.db
-        .query("libraryCommentFiles")
-        .withIndex("by_commentId", (q) => q.eq("commentId", c._id))
-        .collect();
-      const attachments: Array<{ kind: "image" | "file"; url: string; name?: string }> = [];
-      for (const row of imageRows.sort((a, b) => a.order - b.order)) {
-        const img = await ctx.db.get(row.imageId);
-        if (img) attachments.push({ kind: "image", url: img.url });
-      }
-      for (const row of fileRows.sort((a, b) => a.order - b.order)) {
-        const doc = await ctx.db.get(row.documentId);
-        if (doc) attachments.push({ kind: "file", url: doc.url, name: doc.name });
-      }
-
-      results.push({
-        _id: c._id,
-        comment: c.comment ?? "",
-        commentDate: c.commentDate ?? 0,
-        commenterNickName: commenter?.nickName ?? "",
-        commenterProfileImageUrl,
-        attachments,
-      });
-    }
-    return results;
-  },
+  handler: async (ctx, { itemId }) => getLibraryComments(ctx, itemId),
 });
 
 const commentAttachmentInput = v.object({

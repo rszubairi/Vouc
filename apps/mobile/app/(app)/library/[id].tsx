@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Share,
 } from "react-native";
 import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -15,6 +16,8 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { ImageViewerModal } from "../../../components/ImageViewerModal";
+import { WEB_APP_URL } from "../../../constants/links";
+import { toExcerpt } from "../../../utils/text";
 
 export default function LibraryItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -50,6 +53,17 @@ export default function LibraryItemDetailScreen() {
         },
       },
     ]);
+  }
+
+  async function handleShare() {
+    const webLink = `${WEB_APP_URL}/share/knowledge-hub/${id}`;
+    const excerpt = toExcerpt(item!.description);
+    const message = `${item!.title}\n\n${excerpt}\n\n${webLink}`;
+    try {
+      await Share.share({ message, title: item!.title || "Vouch Knowledge Hub Item" });
+    } catch {
+      // user dismissed the native share sheet — nothing to do
+    }
   }
 
   return (
@@ -108,6 +122,9 @@ export default function LibraryItemDetailScreen() {
           <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>
             🔖 {item.starCount}
           </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleShare}>
+          <Text style={styles.statText}>↗️ Share</Text>
         </TouchableOpacity>
       </View>
 

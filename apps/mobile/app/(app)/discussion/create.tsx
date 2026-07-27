@@ -506,25 +506,30 @@ export default function CreateDiscussionScreen() {
           activeOpacity={1}
           onPress={() => setRenamingIndex(null)}
         >
-          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Rename Attachment</Text>
-              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setRenamingIndex(null)} hitSlop={8}>
-                <Ionicons name="close" size={20} color="#1C1B18" />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.modalSheet}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Rename Attachment</Text>
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setRenamingIndex(null)} hitSlop={8}>
+                  <Ionicons name="close" size={20} color="#1C1B18" />
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.input}
+                value={renameValue}
+                onChangeText={setRenameValue}
+                placeholder="File name"
+                placeholderTextColor="#aaa"
+                autoFocus
+              />
+              <TouchableOpacity style={styles.applyBtn} onPress={confirmRename}>
+                <Text style={styles.applyBtnText}>Save</Text>
               </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.input}
-              value={renameValue}
-              onChangeText={setRenameValue}
-              placeholder="File name"
-              placeholderTextColor="#aaa"
-              autoFocus
-            />
-            <TouchableOpacity style={styles.applyBtn} onPress={confirmRename}>
-              <Text style={styles.applyBtnText}>Save</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
 

@@ -15,12 +15,14 @@ import { api } from "../../../../../convex/_generated/api";
 import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useLayoutEffect, useMemo, useState } from "react";
+import { ScheduledBadge } from "../../../components/ScheduledBadge";
 
 export default function DirectoryCategoryScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
+  const me = useQuery(api.profiles.me);
 
   const category = useQuery(api.categories.get, categoryId ? { id: categoryId as Id<"categories"> } : "skip");
   const items = useQuery(
@@ -79,6 +81,11 @@ export default function DirectoryCategoryScreen() {
               style={styles.card}
               onPress={() => router.push(`/(app)/directory/item/${item._id}`)}
             >
+              {item.userId === me?._id && (
+                <View style={styles.scheduledRow}>
+                  <ScheduledBadge postDate={item.postDate} />
+                </View>
+              )}
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.desc} numberOfLines={2}>
                 {item.description}
@@ -105,7 +112,7 @@ export default function DirectoryCategoryScreen() {
                   hitSlop={8}
                 >
                   <Ionicons
-                    name={item.isLiked ? "thumbs-up" : "thumbs-up-outline"}
+                    name={item.isLiked ? "star" : "star-outline"}
                     size={14}
                     color={item.isLiked ? "#F2650C" : "#666"}
                   />
@@ -189,6 +196,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 16, fontWeight: "700", color: "#1C1B18", marginBottom: 4 },
   desc: { fontSize: 14, color: "#555", lineHeight: 20 },
+  scheduledRow: { flexDirection: "row", marginBottom: 8 },
   creatorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
   creatorAvatar: { width: 22, height: 22, borderRadius: 11 },
   creatorAvatarPlaceholder: { backgroundColor: "#1C1B18", alignItems: "center", justifyContent: "center" },

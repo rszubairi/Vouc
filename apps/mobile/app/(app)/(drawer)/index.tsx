@@ -22,6 +22,7 @@ import { useMemo, useState } from "react";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 import { WEB_APP_URL } from "../../../constants/links";
+import { ScheduledBadge } from "../../../components/ScheduledBadge";
 
 const DISCUSSION_CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   "Business Opportunities": "briefcase-outline",
@@ -54,6 +55,7 @@ type FeedDiscussion = {
   starCount: number;
   isStarred: boolean;
   postDate: number;
+  isOwner: boolean;
   nonChinaVideoLink?: string;
   chinaVideoLink?: string;
 };
@@ -98,6 +100,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
       activeOpacity={0.85}
     >
       <View style={styles.badgeRow}>
+        {discussion.isOwner && <ScheduledBadge postDate={discussion.postDate} />}
         {discussion.mustRead && !discussion.isRead && (
           <View style={styles.mustReadBadge}>
             <Text style={styles.mustReadText}>Must Read</Text>
@@ -148,7 +151,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
       <View style={styles.engagementRow}>
         <View style={styles.engagementItem}>
           <Ionicons
-            name={discussion.isLiked ? "thumbs-up" : "thumbs-up-outline"}
+            name={discussion.isLiked ? "star" : "star-outline"}
             size={14}
             color={discussion.isLiked ? "#F2650C" : "#666"}
           />

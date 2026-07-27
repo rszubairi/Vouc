@@ -51,6 +51,14 @@
         }
       ],
       [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Vouch to save photos to your library.",
+          "savePhotosPermission": "Allow Vouch to save photos to your library.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",

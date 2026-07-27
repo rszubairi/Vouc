@@ -110,7 +110,7 @@ export const listItems = query({
       if (!item || item.isDeleted) continue;
       // Scheduled (future-dated) items stay hidden from everyone but their
       // author until due — mirrors the gating in library.listItems.
-      if (item.postDate > now && item.userId !== callerProfile._id && !callerProfile.fullAccess) continue;
+      if (item.postDate > now && item.userId !== callerProfile._id) continue;
       if (categoryId && !item.categoryIds.includes(categoryId)) continue;
       const itemLanguages = await languagesFor(ctx, item._id);
       const itemMarkets = await marketsFor(ctx, item._id);

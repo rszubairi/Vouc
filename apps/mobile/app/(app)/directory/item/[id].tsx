@@ -185,7 +185,7 @@ export default function DirectoryItemDetailScreen() {
           }
         >
           <Ionicons
-            name={item.isLiked ? "thumbs-up" : "thumbs-up-outline"}
+            name={item.isLiked ? "star" : "star-outline"}
             size={18}
             color={item.isLiked ? "#F2650C" : "#666"}
           />

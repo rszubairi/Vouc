@@ -7,6 +7,22 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 
+function friendlyAuthError(message: string, mode: "signIn" | "signUp"): string {
+  if (message.includes("InvalidAccountId") || message.includes("InvalidSecret")) {
+    return "Incorrect email or password. Please try again.";
+  }
+  if (message.includes("TooManyFailedAttempts")) {
+    return "Too many failed attempts. Please wait a moment and try again.";
+  }
+  if (message.includes("already exists") || message.includes("AccountExists")) {
+    return "An account with this email already exists. Try signing in instead.";
+  }
+  if (mode === "signUp" && /password must/i.test(message)) {
+    return message;
+  }
+  return "Something went wrong. Please try again.";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuthActions();
@@ -38,7 +54,11 @@ export default function LoginPage() {
       }
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(
+        err instanceof Error
+          ? friendlyAuthError(err.message, mode)
+          : "Something went wrong. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }

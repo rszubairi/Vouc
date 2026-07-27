@@ -23,7 +23,7 @@ function CustomDrawerContent(props: any) {
     <DrawerContentScrollView {...props} contentContainerStyle={styles.drawerContainer}>
       {/* Logo */}
       <Image
-        source={require("../../../assets/logo.png")}
+        source={require("../../../assets/side-menu-logo.png")}
         style={styles.logo}
         resizeMode="contain"
       />
@@ -116,8 +116,8 @@ export default function DrawerLayout() {
 const styles = StyleSheet.create({
   drawerContainer: { flex: 1, backgroundColor: "#F5EFE0" },
   logo: {
-    height: 32,
-    width: 120,
+    width: "100%",
+    aspectRatio: 619 / 396,
     marginHorizontal: 20,
     marginTop: 24,
   },

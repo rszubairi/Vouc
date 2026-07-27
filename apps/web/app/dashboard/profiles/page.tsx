@@ -183,7 +183,7 @@ export default function ProfilesPage() {
             disabled={isBulkUpdating}
             className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
           >
-            {isBulkUpdating ? "Updating..." : `Disable Selected (${selectedIds.size})`}
+            {isBulkUpdating ? "Updating..." : `Delete Selected (${selectedIds.size})`}
           </button>
           <button
             onClick={() => handleBulkSetDisabled(false)}

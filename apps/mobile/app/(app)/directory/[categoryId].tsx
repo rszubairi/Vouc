@@ -6,6 +6,7 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
@@ -16,6 +17,10 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { ScheduledBadge } from "../../../components/ScheduledBadge";
 import { Avatar } from "../../../components/Avatar";
+import { usePullReveal } from "../../../hooks/usePullReveal";
+import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
+
+type SortMode = "recent" | "liked" | "starred";
 
 export default function DirectoryCategoryScreen() {
   const router = useRouter();
@@ -32,14 +37,18 @@ export default function DirectoryCategoryScreen() {
     api.categories.get,
     categoryId && !isAll ? { id: categoryId as Id<"categories"> } : "skip"
   );
+  const [sort, setSort] = useState<SortMode>("recent");
+  const [sortVisible, setSortVisible] = useState(false);
   const items = useQuery(
     api.library.listItems,
     categoryId
-      ? { categoryId: isAll ? undefined : (categoryId as Id<"categories">), sortBy: "recent" }
+      ? { categoryId: isAll ? undefined : (categoryId as Id<"categories">), sortBy: sort }
       : "skip"
   );
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
+  useHeaderSearchButton(searchVisible, toggleSearch);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: isAll ? "All Directory Items" : category ? category.name : "Directory" });
@@ -64,15 +73,26 @@ export default function DirectoryCategoryScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <TextInput
-          style={styles.search}
-          placeholder="Search this category"
-          placeholderTextColor="#999"
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+      {searchVisible && (
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.search}
+            placeholder="Search this category"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+          <TouchableOpacity style={styles.filterIconBtn} onPress={() => setSortVisible(true)}>
+            <Ionicons name="filter" size={18} color="#1C1B18" />
+            {sort !== "recent" && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>1</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {items === undefined ? (
         <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#1C1B18" />
@@ -172,6 +192,45 @@ export default function DirectoryCategoryScreen() {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
       )}
+
+      <Modal visible={sortVisible} animationType="slide" transparent onRequestClose={() => setSortVisible(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSortVisible(false)}>
+          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Sort Directory</Text>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSortVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Sort by</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, sort === "recent" && styles.chipActive]}
+                onPress={() => setSort("recent")}
+              >
+                <Text style={[styles.chipText, sort === "recent" && styles.chipTextActive]}>Most Recent</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, sort === "liked" && styles.chipActive]}
+                onPress={() => setSort("liked")}
+              >
+                <Text style={[styles.chipText, sort === "liked" && styles.chipTextActive]}>Most Liked</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, sort === "starred" && styles.chipActive]}
+                onPress={() => setSort("starred")}
+              >
+                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Starred</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.applyBtn} onPress={() => setSortVisible(false)}>
+              <Text style={styles.applyBtnText}>Apply</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -233,4 +292,66 @@ const styles = StyleSheet.create({
   engagementRow: { flexDirection: "row", alignItems: "center", gap: 16, marginTop: 10 },
   engagementItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   engagementText: { fontSize: 12, color: "#666", fontWeight: "600" },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#F2650C",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  filterBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  modalSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1B18" },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FAF5EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalLabel: { fontSize: 13, fontWeight: "700", color: "#888", marginBottom: 8, marginTop: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    backgroundColor: "#FAF5EA",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
+  chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  applyBtn: {
+    backgroundColor: "#1C1B18",
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  applyBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });

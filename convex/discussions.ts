@@ -324,8 +324,13 @@ export const list = query({
       const replyCount = replies.length;
       const starCount = await countEngagement(ctx, "discussion", d._id, "Star");
       const isStarred = await isEngagedBy(ctx, "discussion", d._id, "Star", callerProfile._id);
+      const isLiked = metas.some((m: any) => m.userId === callerProfile._id && m.type === "Like");
 
-      if (onlyStarred && !isStarred) continue;
+      // The "starred only" search filter surfaces items the caller has
+      // starred with the tap-to-star icon in the list — which is bound to
+      // the "Like" engagement in the UI (the separate "Star" bookmark
+      // engagement is currently hidden from view), so filter on that.
+      if (onlyStarred && !isLiked) continue;
 
       result.push({
         ...d,
@@ -344,7 +349,7 @@ export const list = query({
         isStarred,
         isRead,
         isOwner: d.userId === callerProfile._id,
-        isLiked: metas.some((m: any) => m.userId === callerProfile._id && m.type === "Like"),
+        isLiked,
         isEndorsed: metas.some((m: any) => m.userId === callerProfile._id && m.type === "Endorse"),
         activityScore: likeCount + endorseCount + replyCount,
       });

@@ -180,6 +180,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           <Ionicons name="chatbubble-outline" size={14} color="#666" />
           <Text style={styles.engagementText}>{discussion.replyCount}</Text>
         </View>
+        {/* Ribbon (Endorse) icon hidden from view per request — keep endorseCount/isEndorsed wired for when it's re-enabled.
         <View style={styles.engagementItem}>
           <Ionicons
             name={discussion.isEndorsed ? "ribbon" : "ribbon-outline"}
@@ -188,6 +189,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           />
           <Text style={styles.engagementText}>{discussion.endorseCount}</Text>
         </View>
+        */}
         {/* Bookmark (Star engagement) icon hidden from view per request — keep handleStar wired for when it's re-enabled.
         <TouchableOpacity
           style={styles.shareIcon}

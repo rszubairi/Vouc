@@ -418,6 +418,7 @@ export default function DiscussionDetailScreen() {
               <Ionicons name="chatbubble-outline" size={16} color="#333" />
               <Text style={styles.engBtnText}>{discussion.replies.length}</Text>
             </View>
+            {/* Ribbon (Endorse) icon hidden from view per request — keep handleEndorse wired for when it's re-enabled.
             <TouchableOpacity style={[styles.engBtn, isEndorsed && styles.engBtnActive]} onPress={handleEndorse}>
               <Ionicons
                 name={isEndorsed ? "ribbon" : "ribbon-outline"}
@@ -426,6 +427,7 @@ export default function DiscussionDetailScreen() {
               />
               <Text style={[styles.engBtnText, isEndorsed && styles.engBtnTextActive]}>{discussion.endorseCount}</Text>
             </TouchableOpacity>
+            */}
             {/* Bookmark (Star engagement) icon hidden from view per request — keep handleStar wired for when it's re-enabled.
             <TouchableOpacity style={[styles.engBtn, isStarred && styles.engBtnActive]} onPress={handleStar}>
               <Ionicons

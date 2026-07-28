@@ -154,14 +154,20 @@ export const listItems = query({
       });
     }
 
+    let filtered = results;
     if (sortBy === "liked") {
-      results.sort((a, b) => b.likeCount - a.likeCount || b.postDate - a.postDate);
+      filtered.sort((a, b) => b.likeCount - a.likeCount || b.postDate - a.postDate);
     } else if (sortBy === "starred") {
-      results.sort((a, b) => b.starCount - a.starCount || b.postDate - a.postDate);
+      // "Starred" surfaces items the caller has liked with the tap-to-star
+      // icon (bound to the "Like" engagement — the separate "Star" bookmark
+      // engagement is currently hidden from view), not a global popularity
+      // sort by everyone's star count.
+      filtered = results.filter((r) => r.isLiked);
+      filtered.sort((a, b) => b.postDate - a.postDate);
     } else {
-      results.sort((a, b) => b.postDate - a.postDate);
+      filtered.sort((a, b) => b.postDate - a.postDate);
     }
-    return results.slice(0, limit);
+    return filtered.slice(0, limit);
   },
 });
 

@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
+import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { ImageViewerModal } from "../../../components/ImageViewerModal";
@@ -103,27 +104,44 @@ export default function LibraryItemDetailScreen() {
 
       <View style={styles.statsRow}>
         <TouchableOpacity
+          style={styles.statItem}
           onPress={() =>
             toggleEngagement({ targetType: "knowledgeHubItem", targetId: id as string, kind: "Like" })
           }
         >
-          <Text style={[styles.statText, item.isLiked && styles.statTextActive]}>
-            👍 {item.likeCount}
-          </Text>
+          <Ionicons
+            name={item.isLiked ? "star" : "star-outline"}
+            size={16}
+            color={item.isLiked ? "#F2650C" : "#666"}
+          />
+          <Text style={[styles.statText, item.isLiked && styles.statTextActive]}>{item.likeCount}</Text>
         </TouchableOpacity>
-        <Text style={styles.statText}>⭐ {item.endorseCount}</Text>
-        <Text style={styles.statText}>💬 {item.commentCount}</Text>
+        <View style={styles.statItem}>
+          <Ionicons name="chatbubble-outline" size={16} color="#666" />
+          <Text style={styles.statText}>{item.commentCount}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="ribbon-outline" size={16} color="#666" />
+          <Text style={styles.statText}>{item.endorseCount}</Text>
+        </View>
+        {/* Bookmark (Star engagement) icon hidden from view per request — mutation call kept for when it's re-enabled.
         <TouchableOpacity
+          style={styles.statItem}
           onPress={() =>
             toggleEngagement({ targetType: "knowledgeHubItem", targetId: id as string, kind: "Star" })
           }
         >
-          <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>
-            🔖 {item.starCount}
-          </Text>
+          <Ionicons
+            name={item.isStarred ? "bookmark" : "bookmark-outline"}
+            size={16}
+            color={item.isStarred ? "#F2650C" : "#666"}
+          />
+          <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>{item.starCount}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleShare}>
-          <Text style={styles.statText}>↗️ Share</Text>
+        */}
+        <TouchableOpacity style={styles.statItem} onPress={handleShare}>
+          <Ionicons name="share-outline" size={16} color="#666" />
+          <Text style={styles.statText}>Share</Text>
         </TouchableOpacity>
       </View>
 
@@ -160,6 +178,7 @@ const styles = StyleSheet.create({
   },
   docText: { fontSize: 14, color: "#1C1B18", fontWeight: "600" },
   statsRow: { flexDirection: "row", gap: 16, marginVertical: 14 },
+  statItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   statText: { fontSize: 13, color: "#555" },
   statTextActive: { color: "#F2650C", fontWeight: "700" },
   deleteBtn: { alignItems: "center", marginTop: 20, padding: 10 },

@@ -125,6 +125,11 @@ export default function DirectoryCategoryScreen() {
                   />
                   <Text style={styles.engagementText}>{item.likeCount}</Text>
                 </TouchableOpacity>
+                <View style={styles.engagementItem}>
+                  <Ionicons name="chatbubble-outline" size={14} color="#666" />
+                  <Text style={styles.engagementText}>{item.commentCount}</Text>
+                </View>
+                {/* Bookmark (Star engagement) icon hidden from view per request — mutation call kept for when it's re-enabled.
                 <TouchableOpacity
                   style={styles.engagementItem}
                   onPress={(e) => {
@@ -134,16 +139,13 @@ export default function DirectoryCategoryScreen() {
                   hitSlop={8}
                 >
                   <Ionicons
-                    name={item.isStarred ? "star" : "star-outline"}
+                    name={item.isStarred ? "bookmark" : "bookmark-outline"}
                     size={14}
                     color={item.isStarred ? "#F2650C" : "#666"}
                   />
                   <Text style={styles.engagementText}>{item.starCount}</Text>
                 </TouchableOpacity>
-                <View style={styles.engagementItem}>
-                  <Ionicons name="chatbubble-outline" size={14} color="#666" />
-                  <Text style={styles.engagementText}>{item.commentCount}</Text>
-                </View>
+                */}
               </View>
             </TouchableOpacity>
           )}

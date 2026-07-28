@@ -214,6 +214,7 @@ export default function DirectoryItemDetailScreen() {
           <Text style={styles.statText}>{item.commentCount}</Text>
         </TouchableOpacity>
 
+        {/* Bookmark (Star engagement) icon hidden from view per request — mutation call kept for when it's re-enabled.
         <TouchableOpacity
           style={styles.statItem}
           onPress={() =>
@@ -221,12 +222,13 @@ export default function DirectoryItemDetailScreen() {
           }
         >
           <Ionicons
-            name={item.isStarred ? "star" : "star-outline"}
+            name={item.isStarred ? "bookmark" : "bookmark-outline"}
             size={18}
             color={item.isStarred ? "#F2650C" : "#666"}
           />
           <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>{item.starCount}</Text>
         </TouchableOpacity>
+        */}
 
         <TouchableOpacity style={styles.statItem} onPress={handleShare}>
           <Ionicons name="share-outline" size={18} color="#666" />

@@ -133,6 +133,12 @@ export const listItems = query({
       const starCount = await countEngagement(ctx, "knowledgeHubItem", item._id, "Star");
       const isLiked = await isEngagedBy(ctx, "knowledgeHubItem", item._id, "Like", callerProfile._id);
       const isStarred = await isEngagedBy(ctx, "knowledgeHubItem", item._id, "Star", callerProfile._id);
+      const commentCount = (
+        await ctx.db
+          .query("knowledgeHubItemMetas")
+          .withIndex("by_knowledgeHubItemId", (q) => q.eq("knowledgeHubItemId", item._id))
+          .collect()
+      ).filter((m) => m.type === "Comment").length;
 
       results.push({
         ...item,
@@ -144,6 +150,7 @@ export const listItems = query({
         starCount,
         isLiked,
         isStarred,
+        commentCount,
       });
     }
 

@@ -408,12 +408,16 @@ export default function DiscussionDetailScreen() {
           <View style={styles.engagementBar}>
             <TouchableOpacity style={[styles.engBtn, isLiked && styles.engBtnActive]} onPress={handleLike}>
               <Ionicons
-                name={isLiked ? "thumbs-up" : "thumbs-up-outline"}
+                name={isLiked ? "star" : "star-outline"}
                 size={16}
                 color={isLiked ? "#F2650C" : "#333"}
               />
               <Text style={[styles.engBtnText, isLiked && styles.engBtnTextActive]}>{discussion.likeCount}</Text>
             </TouchableOpacity>
+            <View style={styles.engBtn}>
+              <Ionicons name="chatbubble-outline" size={16} color="#333" />
+              <Text style={styles.engBtnText}>{discussion.replies.length}</Text>
+            </View>
             <TouchableOpacity style={[styles.engBtn, isEndorsed && styles.engBtnActive]} onPress={handleEndorse}>
               <Ionicons
                 name={isEndorsed ? "ribbon" : "ribbon-outline"}
@@ -422,18 +426,16 @@ export default function DiscussionDetailScreen() {
               />
               <Text style={[styles.engBtnText, isEndorsed && styles.engBtnTextActive]}>{discussion.endorseCount}</Text>
             </TouchableOpacity>
-            <View style={styles.engBtn}>
-              <Ionicons name="chatbubble-outline" size={16} color="#333" />
-              <Text style={styles.engBtnText}>{discussion.replies.length}</Text>
-            </View>
+            {/* Bookmark (Star engagement) icon hidden from view per request — keep handleStar wired for when it's re-enabled.
             <TouchableOpacity style={[styles.engBtn, isStarred && styles.engBtnActive]} onPress={handleStar}>
               <Ionicons
-                name={isStarred ? "star" : "star-outline"}
+                name={isStarred ? "bookmark" : "bookmark-outline"}
                 size={16}
                 color={isStarred ? "#F2650C" : "#333"}
               />
               <Text style={[styles.engBtnText, isStarred && styles.engBtnTextActive]}>{discussion.starCount}</Text>
             </TouchableOpacity>
+            */}
           </View>
         );
       })()}

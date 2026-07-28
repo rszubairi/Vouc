@@ -69,6 +69,8 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
   const [starOverride, setStarOverride] = useState<boolean | null>(null);
   const isStarred = starOverride ?? discussion.isStarred;
+  const [likeOverride, setLikeOverride] = useState<boolean | null>(null);
+  const isLiked = likeOverride ?? discussion.isLiked;
 
   async function handleStar() {
     setStarOverride(!discussion.isStarred);
@@ -76,6 +78,15 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
       await toggleEngagement({ targetType: "discussion", targetId: discussion._id, kind: "Star" });
     } finally {
       setStarOverride(null);
+    }
+  }
+
+  async function handleLike() {
+    setLikeOverride(!discussion.isLiked);
+    try {
+      await toggleEngagement({ targetType: "discussion", targetId: discussion._id, kind: "Like" });
+    } finally {
+      setLikeOverride(null);
     }
   }
 
@@ -150,13 +161,24 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
 
       {/* Engagement bar */}
       <View style={styles.engagementRow}>
-        <View style={styles.engagementItem}>
+        <TouchableOpacity
+          style={styles.engagementItem}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleLike();
+          }}
+          hitSlop={8}
+        >
           <Ionicons
-            name={discussion.isLiked ? "star" : "star-outline"}
+            name={isLiked ? "star" : "star-outline"}
             size={14}
-            color={discussion.isLiked ? "#F2650C" : "#666"}
+            color={isLiked ? "#F2650C" : "#666"}
           />
           <Text style={styles.engagementText}>{discussion.likeCount}</Text>
+        </TouchableOpacity>
+        <View style={styles.engagementItem}>
+          <Ionicons name="chatbubble-outline" size={14} color="#666" />
+          <Text style={styles.engagementText}>{discussion.replyCount}</Text>
         </View>
         <View style={styles.engagementItem}>
           <Ionicons
@@ -166,10 +188,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           />
           <Text style={styles.engagementText}>{discussion.endorseCount}</Text>
         </View>
-        <View style={styles.engagementItem}>
-          <Ionicons name="chatbubble-outline" size={14} color="#666" />
-          <Text style={styles.engagementText}>{discussion.replyCount}</Text>
-        </View>
+        {/* Bookmark (Star engagement) icon hidden from view per request — keep handleStar wired for when it's re-enabled.
         <TouchableOpacity
           style={styles.shareIcon}
           onPress={(e) => {
@@ -179,11 +198,12 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           hitSlop={8}
         >
           <Ionicons
-            name={isStarred ? "star" : "star-outline"}
+            name={isStarred ? "bookmark" : "bookmark-outline"}
             size={16}
             color={isStarred ? "#F2650C" : "#666"}
           />
         </TouchableOpacity>
+        */}
         <TouchableOpacity
           style={styles.shareIcon}
           onPress={(e) => {

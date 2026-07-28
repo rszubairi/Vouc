@@ -66,8 +66,8 @@ export function ShareView({ item }: { item: SharedItem }) {
             <ul className="space-y-4">
               {item.comments.map((c) => (
                 <li key={c._id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-black/10 shrink-0 overflow-hidden">
-                    {c.commenterProfileImageUrl && (
+                  <div className="w-8 h-8 rounded-full bg-black/10 shrink-0 overflow-hidden flex items-center justify-center">
+                    {c.commenterProfileImageUrl ? (
                       <Image
                         src={c.commenterProfileImageUrl}
                         alt={c.commenterNickName}
@@ -76,6 +76,10 @@ export function ShareView({ item }: { item: SharedItem }) {
                         unoptimized
                         className="object-cover w-full h-full"
                       />
+                    ) : (
+                      <span className="text-xs font-semibold text-black/60">
+                        {c.commenterNickName?.[0]?.toUpperCase() ?? "?"}
+                      </span>
                     )}
                   </div>
                   <div>

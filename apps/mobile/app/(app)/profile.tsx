@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -17,6 +16,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { LANGUAGES, ALL_LANGUAGES } from "../../constants/languages";
 import { MARKETS, ALL_MARKETS } from "../../constants/markets";
+import { Avatar } from "../../components/Avatar";
 
 export default function ProfileScreen() {
   const me = useQuery(api.profiles.me);
@@ -220,15 +220,13 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.avatarSection}>
         <TouchableOpacity onPress={handlePickImage} disabled={uploadingImage} activeOpacity={0.8}>
-          {me?.profileImageUrl ? (
-            <Image source={{ uri: me.profileImageUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarInitial}>
-                {me?.nickName?.[0]?.toUpperCase() ?? "?"}
-              </Text>
-            </View>
-          )}
+          <Avatar
+            uri={me?.profileImageUrl}
+            name={me?.nickName}
+            imageStyle={styles.avatar}
+            placeholderStyle={[styles.avatar, styles.avatarPlaceholder]}
+            textStyle={styles.avatarInitial}
+          />
           <View style={styles.avatarBadge}>
             {uploadingImage ? (
               <ActivityIndicator size="small" color="#F5EFE0" />

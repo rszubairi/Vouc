@@ -7,13 +7,13 @@ import {
   ActivityIndicator,
   Linking,
 } from "react-native";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { Avatar } from "../../../components/Avatar";
 
 const SOCIAL_LINKS: {
   key: "website" | "instagram" | "facebook" | "twitter" | "tiktok" | "youtube" | "line";
@@ -60,15 +60,13 @@ export default function MemberProfileScreen() {
       <LinearGradient colors={["#1C1B18", "#2E2B24"]} style={styles.banner} />
 
       <View style={styles.avatarWrap}>
-        {profile.profileImageUrl ? (
-          <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarInitial}>
-              {profile.nickName?.[0]?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          uri={profile.profileImageUrl}
+          name={profile.nickName}
+          imageStyle={styles.avatar}
+          placeholderStyle={[styles.avatar, styles.avatarPlaceholder]}
+          textStyle={styles.avatarInitial}
+        />
       </View>
 
       <View style={styles.identity}>

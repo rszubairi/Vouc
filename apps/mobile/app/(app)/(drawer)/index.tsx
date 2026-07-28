@@ -24,6 +24,7 @@ import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 import { WEB_APP_URL } from "../../../constants/links";
 import { ScheduledBadge } from "../../../components/ScheduledBadge";
 import { toExcerpt } from "../../../utils/text";
+import { Avatar } from "../../../components/Avatar";
 
 const DISCUSSION_CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   "Business Opportunities": "briefcase-outline",
@@ -120,15 +121,13 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
 
       {/* Creator */}
       <View style={styles.creatorRow}>
-        {discussion.creatorProfileImageUrl ? (
-          <Image source={{ uri: discussion.creatorProfileImageUrl }} style={styles.creatorAvatar} />
-        ) : (
-          <View style={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}>
-            <Text style={styles.creatorAvatarInitial}>
-              {discussion.creatorNickName?.[0]?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          uri={discussion.creatorProfileImageUrl}
+          name={discussion.creatorNickName}
+          imageStyle={styles.creatorAvatar}
+          placeholderStyle={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}
+          textStyle={styles.creatorAvatarInitial}
+        />
         <Text style={styles.creator}>{discussion.creatorNickName}</Text>
       </View>
       {discussion.topic ? <Text style={styles.topic}>{discussion.topic}</Text> : null}

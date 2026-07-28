@@ -336,7 +336,8 @@ export default defineSchema(
       remarks: v.optional(v.string()),
     })
       .index("by_eventId", ["eventId"])
-      .index("by_userId", ["userId"]),
+      .index("by_userId", ["userId"])
+      .index("by_eventId_userId", ["eventId", "userId"]),
 
     eventAttendanceDocuments: defineTable({
       eventAttendanceId: v.id("eventAttendances"),

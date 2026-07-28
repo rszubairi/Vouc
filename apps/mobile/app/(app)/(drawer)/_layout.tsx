@@ -13,6 +13,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
+import { Avatar } from "../../../components/Avatar";
 
 function CustomDrawerContent(props: any) {
   const { signOut } = useAuthActions();
@@ -38,15 +39,13 @@ function CustomDrawerContent(props: any) {
           router.push("/(app)/profile");
         }}
       >
-        {me?.profileImageUrl ? (
-          <Image source={{ uri: me.profileImageUrl }} style={styles.avatar} contentFit="cover" />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarInitial}>
-              {me?.nickName?.[0]?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          uri={me?.profileImageUrl}
+          name={me?.nickName}
+          imageStyle={styles.avatar}
+          placeholderStyle={[styles.avatar, styles.avatarPlaceholder]}
+          textStyle={styles.avatarInitial}
+        />
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{me?.nickName ?? "Loading..."}</Text>
           <Text style={styles.profileCity}>{me?.city ?? ""}</Text>

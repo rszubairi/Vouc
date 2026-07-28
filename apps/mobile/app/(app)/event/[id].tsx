@@ -164,6 +164,19 @@ export default function EventDetailScreen() {
 
   const isOwner = me?._id === event.userId;
 
+  function openRsvpForm() {
+    const existing = event?.myAttendance;
+    if (existing) {
+      setAttending(existing.attending);
+      setAmount(String(existing.amount ?? 0));
+      setPaidVia(existing.paidVia === "N/A" ? "" : existing.paidVia ?? "");
+      setGuestCount(String(existing.guestCount ?? 0));
+      setGuestNames(existing.guestNames ?? []);
+      setRemarks(existing.remarks ?? "");
+    }
+    setShowRsvpForm(true);
+  }
+
   async function handleRsvp() {
     try {
       setSubmitting(true);
@@ -181,7 +194,10 @@ export default function EventDetailScreen() {
         receipts: receipts.length ? receipts : undefined,
       });
       setShowRsvpForm(false);
-      Alert.alert("RSVP Confirmed", "You're on the list for this event.");
+      Alert.alert(
+        event?.isRegistered ? "RSVP Updated" : "RSVP Confirmed",
+        "You're on the list for this event."
+      );
     } catch (err: any) {
       Alert.alert("RSVP failed", err.message ?? "Please try again.");
     } finally {
@@ -255,9 +271,21 @@ export default function EventDetailScreen() {
       </View>
 
       {!showRsvpForm ? (
-        <TouchableOpacity style={styles.rsvpBtn} onPress={() => setShowRsvpForm(true)}>
-          <Text style={styles.rsvpBtnText}>RSVP</Text>
-        </TouchableOpacity>
+        event.isRegistered ? (
+          <View style={styles.registeredRow}>
+            <View style={styles.registeredBadge}>
+              <Ionicons name="checkmark-circle" size={18} color="#2e7d32" />
+              <Text style={styles.registeredBadgeText}>You're registered for this event</Text>
+            </View>
+            <TouchableOpacity style={styles.editRsvpBtn} onPress={openRsvpForm}>
+              <Text style={styles.editRsvpBtnText}>Edit RSVP</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.rsvpBtn} onPress={openRsvpForm}>
+            <Text style={styles.rsvpBtnText}>RSVP</Text>
+          </TouchableOpacity>
+        )
       ) : (
         <View style={styles.rsvpForm}>
           <Text style={styles.label}>Will you be attending?</Text>
@@ -349,7 +377,9 @@ export default function EventDetailScreen() {
             {submitting ? (
               <ActivityIndicator color="#F5EFE0" />
             ) : (
-              <Text style={styles.rsvpBtnText}>Confirm RSVP</Text>
+              <Text style={styles.rsvpBtnText}>
+                {event.isRegistered ? "Update RSVP" : "Confirm RSVP"}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -474,6 +504,20 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   rsvpBtnText: { color: "#F2650C", fontWeight: "700", fontSize: 16 },
+  registeredRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#EAF6EC",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 10,
+  },
+  registeredBadge: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  registeredBadgeText: { color: "#2e7d32", fontWeight: "700", fontSize: 14 },
+  editRsvpBtn: { paddingHorizontal: 10, paddingVertical: 6 },
+  editRsvpBtnText: { color: "#1C1B18", fontWeight: "700", fontSize: 13, textDecorationLine: "underline" },
   rsvpForm: { marginTop: 10 },
   label: { fontSize: 13, fontWeight: "600", color: "#666", marginBottom: 6, marginTop: 12 },
   input: {

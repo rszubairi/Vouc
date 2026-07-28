@@ -9,7 +9,6 @@ import {
   RefreshControl,
   Modal,
 } from "react-native";
-import { Image } from "expo-image";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +17,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import { useRouter } from "expo-router";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
+import { Avatar } from "../../../components/Avatar";
 
 type SortMode = "recent" | "liked" | "starred";
 
@@ -143,15 +143,13 @@ export default function NetworkScreen() {
           style={styles.row}
           onPress={() => router.push(`/(app)/network/${item._id}`)}
         >
-          {item.profileImageUrl ? (
-            <Image source={{ uri: item.profileImageUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarInitial}>
-                {item.nickName?.[0]?.toUpperCase() ?? "?"}
-              </Text>
-            </View>
-          )}
+          <Avatar
+            uri={item.profileImageUrl}
+            name={item.nickName}
+            imageStyle={styles.avatar}
+            placeholderStyle={[styles.avatar, styles.avatarPlaceholder]}
+            textStyle={styles.avatarInitial}
+          />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.name}>{item.nickName}</Text>
             <Text style={styles.subText}>{item.city}, {item.country}</Text>

@@ -30,6 +30,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { WEB_APP_URL } from "../../../constants/links";
 import { ImageViewerModal } from "../../../components/ImageViewerModal";
 import { toExcerpt } from "../../../utils/text";
+import { Avatar } from "../../../components/Avatar";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -323,15 +324,13 @@ export default function DiscussionDetailScreen() {
     >
       {/* Creator */}
       <View style={styles.creatorRow}>
-        {discussion.creator?.profileImageUrl ? (
-          <Image source={{ uri: discussion.creator.profileImageUrl }} style={styles.avatarCircle} />
-        ) : (
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitial}>
-              {discussion.creator?.nickName?.[0]?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          uri={discussion.creator?.profileImageUrl}
+          name={discussion.creator?.nickName}
+          imageStyle={styles.avatarCircle}
+          placeholderStyle={styles.avatarCircle}
+          textStyle={styles.avatarInitial}
+        />
         <View>
           <Text style={styles.creatorName}>{discussion.creator?.nickName}</Text>
           <Text style={styles.dateText}>

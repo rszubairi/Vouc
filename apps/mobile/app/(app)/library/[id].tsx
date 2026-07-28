@@ -18,6 +18,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import { ImageViewerModal } from "../../../components/ImageViewerModal";
 import { WEB_APP_URL } from "../../../constants/links";
 import { toExcerpt } from "../../../utils/text";
+import { Avatar } from "../../../components/Avatar";
 
 export default function LibraryItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,15 +71,13 @@ export default function LibraryItemDetailScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{item.title}</Text>
       <View style={styles.creatorRow}>
-        {item.creatorProfileImageUrl ? (
-          <Image source={{ uri: item.creatorProfileImageUrl }} style={styles.creatorAvatar} />
-        ) : (
-          <View style={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}>
-            <Text style={styles.creatorAvatarInitial}>
-              {item.creatorNickName?.[0]?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          uri={item.creatorProfileImageUrl}
+          name={item.creatorNickName}
+          imageStyle={styles.creatorAvatar}
+          placeholderStyle={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}
+          textStyle={styles.creatorAvatarInitial}
+        />
         <Text style={styles.creator}>By {item.creatorNickName}</Text>
       </View>
 

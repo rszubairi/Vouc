@@ -23,6 +23,7 @@ import { Id } from "../../../../../../convex/_generated/dataModel";
 import { ImageViewerModal } from "../../../../components/ImageViewerModal";
 import { WEB_APP_URL } from "../../../../constants/links";
 import { toExcerpt } from "../../../../utils/text";
+import { Avatar } from "../../../../components/Avatar";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -163,15 +164,13 @@ export default function DirectoryItemDetailScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{item.title}</Text>
       <View style={styles.creatorRow}>
-        {item.creatorProfileImageUrl ? (
-          <Image source={{ uri: item.creatorProfileImageUrl }} style={styles.creatorAvatar} />
-        ) : (
-          <View style={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}>
-            <Text style={styles.creatorAvatarInitial}>
-              {item.creatorNickName?.[0]?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          uri={item.creatorProfileImageUrl}
+          name={item.creatorNickName}
+          imageStyle={styles.creatorAvatar}
+          placeholderStyle={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}
+          textStyle={styles.creatorAvatarInitial}
+        />
         <Text style={styles.creator}>By {item.creatorNickName}</Text>
       </View>
 
@@ -252,15 +251,13 @@ export default function DirectoryItemDetailScreen() {
           ) : (
             comments.map((c) => (
               <View key={c._id} style={styles.commentRow}>
-                {c.commenterProfileImageUrl ? (
-                  <Image source={{ uri: c.commenterProfileImageUrl }} style={styles.commentAvatar} />
-                ) : (
-                  <View style={[styles.commentAvatar, styles.creatorAvatarPlaceholder]}>
-                    <Text style={styles.creatorAvatarInitial}>
-                      {c.commenterNickName?.[0]?.toUpperCase() ?? "?"}
-                    </Text>
-                  </View>
-                )}
+                <Avatar
+                  uri={c.commenterProfileImageUrl}
+                  name={c.commenterNickName}
+                  imageStyle={styles.commentAvatar}
+                  placeholderStyle={[styles.commentAvatar, styles.creatorAvatarPlaceholder]}
+                  textStyle={styles.creatorAvatarInitial}
+                />
                 <View style={styles.commentBody}>
                   <Text style={styles.commentAuthor}>{c.commenterNickName}</Text>
                   <Text style={styles.commentText}>{c.comment}</Text>

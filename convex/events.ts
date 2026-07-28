@@ -332,6 +332,7 @@ export const getEvent = query({
       .collect();
 
     let isHost = false;
+    let myAttendance: (typeof attendances)[number] | null = null;
     const authUserId = await getAuthUserId(ctx);
     if (authUserId) {
       const callerProfile = await ctx.db
@@ -342,6 +343,9 @@ export const getEvent = query({
         !!callerProfile &&
         (callerProfile._id === event.userId ||
           hosts.some((h) => h.userId === callerProfile._id));
+      myAttendance = callerProfile
+        ? attendances.find((a) => a.userId === callerProfile._id) ?? null
+        : null;
     }
 
     return {
@@ -358,6 +362,8 @@ export const getEvent = query({
       languages: await languagesFor(ctx, eventId),
       markets: await marketsFor(ctx, eventId),
       isHost,
+      isRegistered: myAttendance !== null,
+      myAttendance,
     };
   },
 });
@@ -409,7 +415,16 @@ export const rsvpEvent = mutation({
     const event = await ctx.db.get(args.eventId);
     if (!event || event.isDeleted) throw new Error("Event not found");
 
-    const attendanceId = await ctx.db.insert("eventAttendances", {
+    // Resubmitting an RSVP (e.g. updating guest count or payment details)
+    // updates the existing record rather than creating a duplicate.
+    const existing = await ctx.db
+      .query("eventAttendances")
+      .withIndex("by_eventId_userId", (q) =>
+        q.eq("eventId", args.eventId).eq("userId", profile._id)
+      )
+      .first();
+
+    const attendanceFields = {
       eventId: args.eventId,
       userId: profile._id,
       attending: args.attending,
@@ -421,7 +436,15 @@ export const rsvpEvent = mutation({
       amount: args.amount,
       transactionDate: args.transactionDate,
       remarks: args.remarks,
-    });
+    };
+
+    let attendanceId: Id<"eventAttendances">;
+    if (existing) {
+      await ctx.db.patch(existing._id, attendanceFields);
+      attendanceId = existing._id;
+    } else {
+      attendanceId = await ctx.db.insert("eventAttendances", attendanceFields);
+    }
 
     if (args.receipts) {
       for (const receipt of args.receipts) {

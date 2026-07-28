@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Image,
   RefreshControl,
   Modal,
 } from "react-native";
@@ -19,6 +18,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 import { ScheduledBadge } from "../../../components/ScheduledBadge";
+import { Avatar } from "../../../components/Avatar";
 
 const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   "Articles & Guides": "school-outline",
@@ -212,15 +212,13 @@ export default function LibraryScreen() {
                 {item.description}
               </Text>
               <View style={styles.creatorRow}>
-                {item.creatorProfileImageUrl ? (
-                  <Image source={{ uri: item.creatorProfileImageUrl }} style={styles.creatorAvatar} />
-                ) : (
-                  <View style={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}>
-                    <Text style={styles.creatorAvatarInitial}>
-                      {item.creatorNickName?.[0]?.toUpperCase() ?? "?"}
-                    </Text>
-                  </View>
-                )}
+                <Avatar
+                  uri={item.creatorProfileImageUrl}
+                  name={item.creatorNickName}
+                  imageStyle={styles.creatorAvatar}
+                  placeholderStyle={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}
+                  textStyle={styles.creatorAvatarInitial}
+                />
                 <Text style={styles.creatorName}>{item.creatorNickName}</Text>
               </View>
               <View style={styles.engagementRow}>

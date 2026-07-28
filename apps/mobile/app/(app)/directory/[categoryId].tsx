@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Image,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +15,7 @@ import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { ScheduledBadge } from "../../../components/ScheduledBadge";
+import { Avatar } from "../../../components/Avatar";
 
 export default function DirectoryCategoryScreen() {
   const router = useRouter();
@@ -100,15 +100,13 @@ export default function DirectoryCategoryScreen() {
                 {item.description}
               </Text>
               <View style={styles.creatorRow}>
-                {item.creatorProfileImageUrl ? (
-                  <Image source={{ uri: item.creatorProfileImageUrl }} style={styles.creatorAvatar} />
-                ) : (
-                  <View style={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}>
-                    <Text style={styles.creatorAvatarInitial}>
-                      {item.creatorNickName?.[0]?.toUpperCase() ?? "?"}
-                    </Text>
-                  </View>
-                )}
+                <Avatar
+                  uri={item.creatorProfileImageUrl}
+                  name={item.creatorNickName}
+                  imageStyle={styles.creatorAvatar}
+                  placeholderStyle={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}
+                  textStyle={styles.creatorAvatarInitial}
+                />
                 <Text style={styles.creatorName}>{item.creatorNickName}</Text>
               </View>
               <View style={styles.engagementRow}>

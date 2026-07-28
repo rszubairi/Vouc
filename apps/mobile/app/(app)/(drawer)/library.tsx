@@ -37,6 +37,10 @@ export default function LibraryScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<Id<"categories"> | null>(
     (paramCategoryId as Id<"categories"> | undefined) ?? null
   );
+  // "All Knowledge Hub Items" bypasses category browsing entirely — mirrors
+  // "All Discussions" in the discussions feed, so items posted with no
+  // category (or a category the reader hasn't tapped into) stay reachable.
+  const [viewAll, setViewAll] = useState(false);
   const [sort, setSort] = useState<SortMode>("recent");
   const [sortVisible, setSortVisible] = useState(false);
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
@@ -50,13 +54,16 @@ export default function LibraryScreen() {
   // back to the top-level grid.
   useEffect(() => {
     setSelectedCategoryId((paramCategoryId as Id<"categories"> | undefined) ?? null);
+    setViewAll(false);
   }, [paramCategoryId]);
 
   const me = useQuery(api.profiles.me);
   const categories = useQuery(api.categories.list, { scope: "knowledgeHub" });
   const items = useQuery(
     api.knowledgeHub.listItems,
-    selectedCategoryId ? { categoryId: selectedCategoryId, sortBy: sort } : "skip"
+    selectedCategoryId || viewAll
+      ? { categoryId: selectedCategoryId ?? undefined, sortBy: sort }
+      : "skip"
   );
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -75,9 +82,9 @@ export default function LibraryScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: selectedCategory ? selectedCategory.name : "Knowledge Hub",
+      title: selectedCategory ? selectedCategory.name : viewAll ? "All Knowledge Hub Items" : "Knowledge Hub",
     });
-  }, [navigation, selectedCategory]);
+  }, [navigation, selectedCategory, viewAll]);
 
   const filteredItems = useMemo(() => {
     if (!items) return [];
@@ -96,7 +103,7 @@ export default function LibraryScreen() {
     setTimeout(() => setRefreshing(false), 600);
   }
 
-  if (!selectedCategoryId) {
+  if (!selectedCategoryId && !viewAll) {
     return (
       <View style={styles.container}>
         {categories === undefined ? (
@@ -107,6 +114,15 @@ export default function LibraryScreen() {
             keyExtractor={(c) => c._id}
             estimatedItemSize={64}
             contentContainerStyle={styles.list}
+            ListHeaderComponent={
+              <TouchableOpacity style={styles.categoryCard} onPress={() => setViewAll(true)}>
+                <View style={styles.categoryIconWrap}>
+                  <Ionicons name="albums-outline" size={22} color="#F2650C" />
+                </View>
+                <Text style={styles.categoryName}>All Knowledge Hub Items</Text>
+                <Ionicons name="chevron-forward" size={18} color="#999" />
+              </TouchableOpacity>
+            }
             renderItem={({ item: category }) => (
               <TouchableOpacity
                 style={styles.categoryCard}
@@ -136,9 +152,17 @@ export default function LibraryScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backRow} onPress={() => setSelectedCategoryId(null)}>
+      <TouchableOpacity
+        style={styles.backRow}
+        onPress={() => {
+          setSelectedCategoryId(null);
+          setViewAll(false);
+        }}
+      >
         <Ionicons name="chevron-back" size={18} color="#F2650C" />
-        <Text style={styles.backText}>{selectedCategory?.name ?? "Categories"}</Text>
+        <Text style={styles.backText}>
+          {selectedCategory?.name ?? (viewAll ? "All Knowledge Hub Items" : "Categories")}
+        </Text>
       </TouchableOpacity>
 
       {searchVisible && (
@@ -246,7 +270,7 @@ export default function LibraryScreen() {
         onPress={() =>
           router.push({
             pathname: "/(app)/library/create",
-            params: { categoryId: selectedCategoryId as string },
+            params: selectedCategoryId ? { categoryId: selectedCategoryId as string } : undefined,
           })
         }
       >

@@ -190,7 +190,7 @@ export default function ProfilesPage() {
             disabled={isBulkUpdating}
             className="text-sm px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:border-[#F2650C] hover:text-[#F2650C] disabled:opacity-50"
           >
-            {isBulkUpdating ? "Updating..." : `Enable Selected (${selectedIds.size})`}
+            {isBulkUpdating ? "Updating..." : `Re-activate Selected (${selectedIds.size})`}
           </button>
         </div>
       )}

@@ -4,10 +4,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Linking,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -47,7 +47,7 @@ export default function MemberProfileScreen() {
   if (!profile) {
     return (
       <View style={styles.center}>
-        <Text>Member not found.</Text>
+        <Text>Member no longer in the system.</Text>
       </View>
     );
   }

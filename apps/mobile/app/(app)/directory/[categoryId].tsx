@@ -21,20 +21,29 @@ export default function DirectoryCategoryScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();
+  // "All Directory Items" is reached via the sentinel `categoryId === "all"`
+  // (set by the "All Directory Items" entry on the Divisions screen) — it
+  // bypasses category filtering entirely, mirroring "All Discussions".
+  const isAll = categoryId === "all";
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
   const me = useQuery(api.profiles.me);
 
-  const category = useQuery(api.categories.get, categoryId ? { id: categoryId as Id<"categories"> } : "skip");
+  const category = useQuery(
+    api.categories.get,
+    categoryId && !isAll ? { id: categoryId as Id<"categories"> } : "skip"
+  );
   const items = useQuery(
     api.library.listItems,
-    categoryId ? { categoryId: categoryId as Id<"categories">, sortBy: "recent" } : "skip"
+    categoryId
+      ? { categoryId: isAll ? undefined : (categoryId as Id<"categories">), sortBy: "recent" }
+      : "skip"
   );
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: category ? category.name : "Directory" });
-  }, [navigation, category]);
+    navigation.setOptions({ title: isAll ? "All Directory Items" : category ? category.name : "Directory" });
+  }, [navigation, category, isAll]);
 
   const filteredItems = useMemo(() => {
     if (!items) return [];
@@ -142,12 +151,15 @@ export default function DirectoryCategoryScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No posts in this category yet.</Text>
+              <Text style={styles.emptyText}>
+                {isAll ? "No directory items yet." : "No posts in this category yet."}
+              </Text>
             </View>
           }
         />
       )}
 
+      {!isAll && (
       <TouchableOpacity
         style={styles.fab}
         onPress={() =>
@@ -159,6 +171,7 @@ export default function DirectoryCategoryScreen() {
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+      )}
     </View>
   );
 }

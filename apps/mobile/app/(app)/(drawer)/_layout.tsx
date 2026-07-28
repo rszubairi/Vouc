@@ -5,8 +5,8 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { DrawerContentScrollView, DrawerItemList } from "expo-router/drawer";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -39,7 +39,7 @@ function CustomDrawerContent(props: any) {
         }}
       >
         {me?.profileImageUrl ? (
-          <Image source={{ uri: me.profileImageUrl }} style={styles.avatar} />
+          <Image source={{ uri: me.profileImageUrl }} style={styles.avatar} contentFit="cover" />
         ) : (
           <View style={[styles.avatar, styles.avatarPlaceholder]}>
             <Text style={styles.avatarInitial}>

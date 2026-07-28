@@ -463,14 +463,24 @@ export const listDirectory = query({
     );
 
     const enriched = await Promise.all(
-      profiles.map(async (p) => ({
-        ...p,
-        likeCount: await countEngagement(ctx, "profile", p._id, "Like"),
-        starCount: await countEngagement(ctx, "profile", p._id, "Star"),
-        isLiked: await isEngagedBy(ctx, "profile", p._id, "Like", callerProfile._id),
-        isStarred: await isEngagedBy(ctx, "profile", p._id, "Star", callerProfile._id),
-        sponsorName: p.sponsorId ? (await ctx.db.get(p.sponsorId))?.nickName ?? null : null,
-      }))
+      profiles.map(async (p) => {
+        const image = await ctx.db
+          .query("profileImages")
+          .withIndex("by_profileId", (q) => q.eq("profileId", p._id))
+          .filter((q) => q.eq(q.field("isPrimary"), true))
+          .first();
+        const profileImageUrl = image ? (await ctx.db.get(image.imageId))?.url ?? null : null;
+
+        return {
+          ...p,
+          profileImageUrl,
+          likeCount: await countEngagement(ctx, "profile", p._id, "Like"),
+          starCount: await countEngagement(ctx, "profile", p._id, "Star"),
+          isLiked: await isEngagedBy(ctx, "profile", p._id, "Like", callerProfile._id),
+          isStarred: await isEngagedBy(ctx, "profile", p._id, "Star", callerProfile._id),
+          sponsorName: p.sponsorId ? (await ctx.db.get(p.sponsorId))?.nickName ?? null : null,
+        };
+      })
     );
 
     if (sort === "liked") {

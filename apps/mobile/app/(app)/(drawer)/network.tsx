@@ -6,10 +6,10 @@ import {
   TextInput,
   ActivityIndicator,
   FlatList,
-  Image,
   RefreshControl,
   Modal,
 } from "react-native";
+import { Image } from "expo-image";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";

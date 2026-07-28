@@ -65,6 +65,21 @@ export default function DivisionsScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
       }
+      ListHeaderComponent={
+        <TouchableOpacity
+          style={styles.allItemsCard}
+          onPress={() =>
+            router.push({
+              pathname: "/(app)/directory/[categoryId]",
+              params: { categoryId: "all" },
+            })
+          }
+        >
+          <Ionicons name="albums-outline" size={20} color="#F2650C" />
+          <Text style={styles.allItemsText}>All Directory Items</Text>
+          <Text style={styles.categoryArrow}>›</Text>
+        </TouchableOpacity>
+      }
       ListEmptyComponent={
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No divisions yet.</Text>
@@ -154,6 +169,21 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  allItemsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  allItemsText: { flex: 1, fontSize: 15, fontWeight: "700", color: "#1C1B18" },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",

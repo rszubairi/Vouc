@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Image,
   Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -333,7 +333,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Languages to Follow</Text>
+        <Text style={styles.sectionTitle}>Language(s) to follow</Text>
         <View style={styles.chipWrap}>
           <TouchableOpacity
             style={[styles.chip, languages.includes(ALL_LANGUAGES) && styles.chipActive]}
@@ -369,7 +369,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Markets to Follow</Text>
+        <Text style={styles.sectionTitle}>Market(s) to follow</Text>
         <View style={styles.chipWrap}>
           <TouchableOpacity
             style={[styles.chip, markets.includes(ALL_MARKETS) && styles.chipActive]}

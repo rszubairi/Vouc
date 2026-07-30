@@ -32,6 +32,7 @@ import type * as notifications from "../notifications.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
 import type * as ranks from "../ranks.js";
+import type * as releases from "../releases.js";
 import type * as seed from "../seed.js";
 import type * as seedIrene from "../seedIrene.js";
 import type * as seedIreneMutation from "../seedIreneMutation.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   public: typeof public_;
   ranks: typeof ranks;
+  releases: typeof releases;
   seed: typeof seed;
   seedIrene: typeof seedIrene;
   seedIreneMutation: typeof seedIreneMutation;

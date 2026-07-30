@@ -8,6 +8,8 @@ import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import { OnboardingContext } from "../contexts/OnboardingContext";
 import { api } from "../../../convex/_generated/api";
+import { AppUpdateGate } from "../components/AppUpdateGate";
+import { WhatsNewModal } from "../components/WhatsNewModal";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -63,7 +65,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, segments, hasSeenOnboarding, onboardingLoaded]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {isAuthenticated && <WhatsNewModal />}
+      {children}
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -88,9 +95,11 @@ export default function RootLayout() {
   return (
     <OnboardingContext.Provider value={{ hasSeenOnboarding, onboardingLoaded, markComplete }}>
       <ConvexAuthProvider client={convex} storage={secureStorage}>
-        <AuthGate>
-          <Stack screenOptions={{ headerShown: false }} />
-        </AuthGate>
+        <AppUpdateGate>
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false }} />
+          </AuthGate>
+        </AppUpdateGate>
       </ConvexAuthProvider>
     </OnboardingContext.Provider>
   );

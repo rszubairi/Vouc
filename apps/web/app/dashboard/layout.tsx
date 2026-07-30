@@ -13,6 +13,7 @@ import {
   faTags,
   faRankingStar,
   faRightFromBracket,
+  faCodeBranch,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../../../../convex/_generated/api";
 
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/dashboard/divisions", label: "Divisions", icon: faLayerGroup },
   { href: "/dashboard/categories", label: "Categories", icon: faTags },
   { href: "/dashboard/ranks", label: "Membership Type", icon: faRankingStar },
+  { href: "/dashboard/releases", label: "Releases", icon: faCodeBranch },
 ];
 
 export default function DashboardLayout({

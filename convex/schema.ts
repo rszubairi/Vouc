@@ -572,6 +572,24 @@ export default defineSchema(
       displayOrder: v.number(),
     }).index("by_userId", ["userId"]),
 
+    // App release notes, versioned as major.minor.patch where patch is the
+    // number of bugs resolved in that release (e.g. "01.02.0003"). Displayed
+    // to admins for release management and to the app as "What's New" plus
+    // minimum-version enforcement.
+    appReleases: defineTable({
+      major: v.number(),
+      minor: v.number(),
+      patch: v.number(), // bugs resolved in this release
+      version: v.string(), // computed "xx.xx.xxxx" display string
+      releaseNotes: v.string(),
+      platform: v.union(v.literal("ios"), v.literal("android"), v.literal("all")),
+      isMinimumRequired: v.boolean(), // enforced as the minimum installable version for this platform
+      publishedAt: v.number(),
+      createdBy: v.id("profiles"),
+    })
+      .index("by_platform_and_version", ["platform", "major", "minor", "patch"])
+      .index("by_platform_and_isMinimumRequired", ["platform", "isMinimumRequired"]),
+
     contactUs: defineTable({
       userId: v.optional(v.id("profiles")),
       email: v.string(),

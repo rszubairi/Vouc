@@ -408,7 +408,7 @@ export default function DiscussionDetailScreen() {
           <View style={styles.engagementBar}>
             <TouchableOpacity style={[styles.engBtn, isLiked && styles.engBtnActive]} onPress={handleLike}>
               <Ionicons
-                name={isLiked ? "star" : "star-outline"}
+                name={isLiked ? "heart" : "heart-outline"}
                 size={16}
                 color={isLiked ? "#F2650C" : "#333"}
               />
@@ -428,16 +428,14 @@ export default function DiscussionDetailScreen() {
               <Text style={[styles.engBtnText, isEndorsed && styles.engBtnTextActive]}>{discussion.endorseCount}</Text>
             </TouchableOpacity>
             */}
-            {/* Bookmark (Star engagement) icon hidden from view per request — keep handleStar wired for when it's re-enabled.
             <TouchableOpacity style={[styles.engBtn, isStarred && styles.engBtnActive]} onPress={handleStar}>
               <Ionicons
-                name={isStarred ? "bookmark" : "bookmark-outline"}
+                name={isStarred ? "star" : "star-outline"}
                 size={16}
                 color={isStarred ? "#F2650C" : "#333"}
               />
               <Text style={[styles.engBtnText, isStarred && styles.engBtnTextActive]}>{discussion.starCount}</Text>
             </TouchableOpacity>
-            */}
           </View>
         );
       })()}

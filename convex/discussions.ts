@@ -267,6 +267,15 @@ export const list = query({
       discussions.push(d);
     }
 
+    // Bound how many docs get the expensive per-item enrichment below (creator,
+    // images, tags, replies, engagement counts, etc.). Without this, "All
+    // Discussions" (no categoryIds filter) walks every visible discussion in
+    // the account and can blow past Convex's per-query read limit, crashing
+    // the query outright instead of just returning fewer results.
+    discussions.sort((a, b) => b.postDate - a.postDate);
+    const ENRICH_CAP = Math.max(limit * 4, 200);
+    if (discussions.length > ENRICH_CAP) discussions = discussions.slice(0, ENRICH_CAP);
+
     if (keyword?.trim()) {
       const q = keyword.trim().toLowerCase();
       const creatorCache = new Map<string, any>();
@@ -327,10 +336,9 @@ export const list = query({
       const isLiked = metas.some((m: any) => m.userId === callerProfile._id && m.type === "Like");
 
       // The "starred only" search filter surfaces items the caller has
-      // starred with the tap-to-star icon in the list — which is bound to
-      // the "Like" engagement in the UI (the separate "Star" bookmark
-      // engagement is currently hidden from view), so filter on that.
-      if (onlyStarred && !isLiked) continue;
+      // starred — a distinct "save for later" engagement from the heart
+      // "Like" button — so filter on the Star engagement, not Like.
+      if (onlyStarred && !isStarred) continue;
 
       result.push({
         ...d,

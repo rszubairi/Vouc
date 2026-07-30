@@ -188,11 +188,10 @@ export const listItems = query({
     if (sortBy === "liked") {
       filtered.sort((a, b) => b.likeCount - a.likeCount || b.postDate - a.postDate);
     } else if (sortBy === "starred") {
-      // "Starred" surfaces items the caller has liked with the tap-to-star
-      // icon (bound to the "Like" engagement — the separate "Star" bookmark
-      // engagement is currently hidden from view), not a global popularity
-      // sort by everyone's star count.
-      filtered = results.filter((r) => r.isLiked);
+      // "Starred" surfaces items the caller has starred — a distinct
+      // "save for later" engagement from the heart "Like" button — not a
+      // global popularity sort by everyone's star count.
+      filtered = results.filter((r) => r.isStarred);
       filtered.sort((a, b) => b.postDate - a.postDate);
     } else {
       filtered.sort((a, b) => b.postDate - a.postDate);

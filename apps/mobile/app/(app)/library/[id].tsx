@@ -110,7 +110,7 @@ export default function LibraryItemDetailScreen() {
           }
         >
           <Ionicons
-            name={item.isLiked ? "star" : "star-outline"}
+            name={item.isLiked ? "heart" : "heart-outline"}
             size={16}
             color={item.isLiked ? "#F2650C" : "#666"}
           />
@@ -124,7 +124,6 @@ export default function LibraryItemDetailScreen() {
           <Ionicons name="ribbon-outline" size={16} color="#666" />
           <Text style={styles.statText}>{item.endorseCount}</Text>
         </View>
-        {/* Bookmark (Star engagement) icon hidden from view per request — mutation call kept for when it's re-enabled.
         <TouchableOpacity
           style={styles.statItem}
           onPress={() =>
@@ -132,13 +131,12 @@ export default function LibraryItemDetailScreen() {
           }
         >
           <Ionicons
-            name={item.isStarred ? "bookmark" : "bookmark-outline"}
+            name={item.isStarred ? "star" : "star-outline"}
             size={16}
             color={item.isStarred ? "#F2650C" : "#666"}
           />
           <Text style={[styles.statText, item.isStarred && styles.statTextActive]}>{item.starCount}</Text>
         </TouchableOpacity>
-        */}
         <TouchableOpacity style={styles.statItem} onPress={handleShare}>
           <Ionicons name="share-outline" size={16} color="#666" />
           <Text style={styles.statText}>Share</Text>

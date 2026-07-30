@@ -170,7 +170,7 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           hitSlop={8}
         >
           <Ionicons
-            name={isLiked ? "star" : "star-outline"}
+            name={isLiked ? "heart" : "heart-outline"}
             size={14}
             color={isLiked ? "#F2650C" : "#666"}
           />
@@ -190,7 +190,6 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           <Text style={styles.engagementText}>{discussion.endorseCount}</Text>
         </View>
         */}
-        {/* Bookmark (Star engagement) icon hidden from view per request — keep handleStar wired for when it's re-enabled.
         <TouchableOpacity
           style={styles.shareIcon}
           onPress={(e) => {
@@ -200,12 +199,11 @@ function DiscussionCard({ discussion }: { discussion: FeedDiscussion }) {
           hitSlop={8}
         >
           <Ionicons
-            name={isStarred ? "bookmark" : "bookmark-outline"}
+            name={isStarred ? "star" : "star-outline"}
             size={16}
             color={isStarred ? "#F2650C" : "#666"}
           />
         </TouchableOpacity>
-        */}
         <TouchableOpacity
           style={styles.shareIcon}
           onPress={(e) => {

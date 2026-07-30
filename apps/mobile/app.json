@@ -67,7 +67,8 @@
             "backgroundColor": "#F5EFE0"
           }
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "scheme": "oolala",
     "extra": {

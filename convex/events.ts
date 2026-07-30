@@ -332,7 +332,7 @@ export const getEvent = query({
       .collect();
 
     let isHost = false;
-    let myAttendance: (typeof attendances)[number] | null = null;
+    let myAttendance: ((typeof attendances)[number] & { guests?: Array<{ _id: Id<"eventGuests">; name: string; checkedIn: boolean }> }) | null = null;
     const authUserId = await getAuthUserId(ctx);
     if (authUserId) {
       const callerProfile = await ctx.db
@@ -343,9 +343,21 @@ export const getEvent = query({
         !!callerProfile &&
         (callerProfile._id === event.userId ||
           hosts.some((h) => h.userId === callerProfile._id));
-      myAttendance = callerProfile
+      const found = callerProfile
         ? attendances.find((a) => a.userId === callerProfile._id) ?? null
         : null;
+      if (found) {
+        const guestRows = await ctx.db
+          .query("eventGuests")
+          .withIndex("by_eventAttendanceId", (q) => q.eq("eventAttendanceId", found._id))
+          .collect();
+        myAttendance = {
+          ...found,
+          guests: guestRows
+            .sort((g1, g2) => g1.order - g2.order)
+            .map((g) => ({ _id: g._id, name: g.name, checkedIn: g.checkedIn })),
+        };
+      }
     }
 
     return {
@@ -368,6 +380,15 @@ export const getEvent = query({
   },
 });
 
+async function isEventHost(ctx: any, event: any, profileId: Id<"profiles">) {
+  if (profileId === event.userId) return true;
+  const hosts = await ctx.db
+    .query("eventHosts")
+    .withIndex("by_eventId", (q: any) => q.eq("eventId", event._id))
+    .collect();
+  return hosts.some((h: any) => h.userId === profileId);
+}
+
 // Registration/RSVP list — only visible to the event owner or its hosts.
 export const getEventAttendees = query({
   args: { eventId: v.id("events") },
@@ -375,24 +396,103 @@ export const getEventAttendees = query({
     const profile = await getCallerProfile(ctx);
     const event = await ctx.db.get(eventId);
     if (!event || event.isDeleted) throw new Error("Event not found");
-
-    const hosts = await ctx.db
-      .query("eventHosts")
-      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
-      .collect();
-    const isHost = profile._id === event.userId || hosts.some((h) => h.userId === profile._id);
-    if (!isHost) throw new Error("Not authorized");
+    if (!(await isEventHost(ctx, event, profile._id))) throw new Error("Not authorized");
 
     const attendances = await ctx.db
       .query("eventAttendances")
       .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
       .collect();
     const attendeeProfiles = await Promise.all(attendances.map((a) => ctx.db.get(a.userId)));
+    const guestRows = await Promise.all(
+      attendances.map((a) =>
+        ctx.db
+          .query("eventGuests")
+          .withIndex("by_eventAttendanceId", (q) => q.eq("eventAttendanceId", a._id))
+          .collect()
+      )
+    );
 
     return attendances.map((a, i) => ({
       ...a,
       attendeeNickName: attendeeProfiles[i]?.nickName ?? "Unknown",
+      attendeeCity: attendeeProfiles[i]?.city,
+      guests: guestRows[i]
+        .sort((g1, g2) => g1.order - g2.order)
+        .map((g) => ({
+          _id: g._id,
+          name: g.name,
+          checkedIn: g.checkedIn,
+          checkedInAt: g.checkedInAt,
+        })),
     }));
+  },
+});
+
+// Toggle the main applicant's or a guest's check-in status from the RSVP List screen.
+export const toggleAttendance = mutation({
+  args: {
+    kind: v.union(v.literal("attendance"), v.literal("guest")),
+    id: v.union(v.id("eventAttendances"), v.id("eventGuests")),
+  },
+  handler: async (ctx, { kind, id }) => {
+    const profile = await getCallerProfile(ctx);
+
+    if (kind === "attendance") {
+      const attendance = await ctx.db.get(id as Id<"eventAttendances">);
+      if (!attendance) throw new Error("RSVP not found");
+      const event = await ctx.db.get(attendance.eventId);
+      if (!event || event.isDeleted) throw new Error("Event not found");
+      if (!(await isEventHost(ctx, event, profile._id))) throw new Error("Not authorized");
+      const checkedIn = !attendance.hasAttended;
+      await ctx.db.patch(attendance._id, {
+        hasAttended: checkedIn,
+        checkedInAt: checkedIn ? Date.now() : undefined,
+      });
+      return checkedIn;
+    }
+
+    const guest = await ctx.db.get(id as Id<"eventGuests">);
+    if (!guest) throw new Error("Guest not found");
+    const event = await ctx.db.get(guest.eventId);
+    if (!event || event.isDeleted) throw new Error("Event not found");
+    if (!(await isEventHost(ctx, event, profile._id))) throw new Error("Not authorized");
+    const checkedIn = !guest.checkedIn;
+    await ctx.db.patch(guest._id, {
+      checkedIn,
+      checkedInAt: checkedIn ? Date.now() : undefined,
+    });
+    return checkedIn;
+  },
+});
+
+// Marks the main applicant or a guest as checked in — called after scanning their QR code.
+export const checkInAttendee = mutation({
+  args: {
+    kind: v.union(v.literal("attendance"), v.literal("guest")),
+    id: v.union(v.id("eventAttendances"), v.id("eventGuests")),
+  },
+  handler: async (ctx, { kind, id }) => {
+    const profile = await getCallerProfile(ctx);
+
+    if (kind === "attendance") {
+      const attendance = await ctx.db.get(id as Id<"eventAttendances">);
+      if (!attendance) throw new Error("RSVP not found");
+      const event = await ctx.db.get(attendance.eventId);
+      if (!event || event.isDeleted) throw new Error("Event not found");
+      if (!(await isEventHost(ctx, event, profile._id))) throw new Error("Not authorized");
+      if (attendance.hasAttended) return { alreadyCheckedIn: true, name: undefined };
+      await ctx.db.patch(attendance._id, { hasAttended: true, checkedInAt: Date.now() });
+      return { alreadyCheckedIn: false };
+    }
+
+    const guest = await ctx.db.get(id as Id<"eventGuests">);
+    if (!guest) throw new Error("Guest not found");
+    const event = await ctx.db.get(guest.eventId);
+    if (!event || event.isDeleted) throw new Error("Event not found");
+    if (!(await isEventHost(ctx, event, profile._id))) throw new Error("Not authorized");
+    if (guest.checkedIn) return { alreadyCheckedIn: true, name: guest.name };
+    await ctx.db.patch(guest._id, { checkedIn: true, checkedInAt: Date.now() });
+    return { alreadyCheckedIn: false, name: guest.name };
   },
 });
 
@@ -444,6 +544,30 @@ export const rsvpEvent = mutation({
       attendanceId = existing._id;
     } else {
       attendanceId = await ctx.db.insert("eventAttendances", attendanceFields);
+    }
+
+    // Sync eventGuests rows so each guest has an individually check-in-able record.
+    const existingGuests = await ctx.db
+      .query("eventGuests")
+      .withIndex("by_eventAttendanceId", (q) => q.eq("eventAttendanceId", attendanceId))
+      .collect();
+    const submittedNames = args.guestNames ?? [];
+    for (let i = 0; i < submittedNames.length; i++) {
+      const guest = existingGuests[i];
+      if (guest) {
+        await ctx.db.patch(guest._id, { name: submittedNames[i], order: i });
+      } else {
+        await ctx.db.insert("eventGuests", {
+          eventAttendanceId: attendanceId,
+          eventId: args.eventId,
+          name: submittedNames[i],
+          order: i,
+          checkedIn: false,
+        });
+      }
+    }
+    for (let i = submittedNames.length; i < existingGuests.length; i++) {
+      await ctx.db.delete(existingGuests[i]._id);
     }
 
     if (args.receipts) {

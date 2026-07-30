@@ -333,6 +333,7 @@ export default defineSchema(
       amount: v.number(),
       transactionDate: v.number(),
       hasAttended: v.optional(v.boolean()),
+      checkedInAt: v.optional(v.number()),
       remarks: v.optional(v.string()),
     })
       .index("by_eventId", ["eventId"])
@@ -343,6 +344,17 @@ export default defineSchema(
       eventAttendanceId: v.id("eventAttendances"),
       documentId: v.id("documents"),
     }).index("by_eventAttendanceId", ["eventAttendanceId"]),
+
+    eventGuests: defineTable({
+      eventAttendanceId: v.id("eventAttendances"),
+      eventId: v.id("events"),
+      name: v.string(),
+      order: v.number(),
+      checkedIn: v.boolean(),
+      checkedInAt: v.optional(v.number()),
+    })
+      .index("by_eventAttendanceId", ["eventAttendanceId"])
+      .index("by_eventId", ["eventId"]),
 
     eventLanguages: defineTable({
       eventId: v.id("events"),

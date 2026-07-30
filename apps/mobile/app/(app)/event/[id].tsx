@@ -20,6 +20,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
+import QRCode from "react-native-qrcode-svg";
+
+type QrTarget = { kind: "attendance" | "guest"; id: string; label: string };
 
 type PendingReceipt = {
   storageId: Id<"_storage">;
@@ -32,10 +35,6 @@ export default function EventDetailScreen() {
   const router = useRouter();
   const me = useQuery(api.profiles.me);
   const event = useQuery(api.events.getEvent, id ? { eventId: id as Id<"events"> } : "skip");
-  const attendees = useQuery(
-    api.events.getEventAttendees,
-    id && event?.isHost ? { eventId: id as Id<"events"> } : "skip"
-  );
   const rsvp = useMutation(api.events.rsvpEvent);
   const deleteEvent = useMutation(api.events.deleteEvent);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
@@ -48,9 +47,12 @@ export default function EventDetailScreen() {
   const [guestCount, setGuestCount] = useState("0");
   const [guestNames, setGuestNames] = useState<string[]>([]);
   const [remarks, setRemarks] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toLocaleDateString());
   const [receipts, setReceipts] = useState<PendingReceipt[]>([]);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [addingToCalendar, setAddingToCalendar] = useState(false);
+  const [showQrPicker, setShowQrPicker] = useState(false);
+  const [selectedQrIndex, setSelectedQrIndex] = useState(0);
 
   function setGuestCountValue(text: string) {
     setGuestCount(text);
@@ -164,6 +166,18 @@ export default function EventDetailScreen() {
 
   const isOwner = me?._id === event.userId;
 
+  const qrTargets: QrTarget[] = event.myAttendance
+    ? [
+        { kind: "attendance" as const, id: event.myAttendance._id, label: "Main Applicant" },
+        ...(event.myAttendance.guests ?? []).map((g) => ({
+          kind: "guest" as const,
+          id: g._id,
+          label: `${g.name} RSVP by ${me?.nickName ?? "you"}`,
+        })),
+      ]
+    : [];
+  const selectedQrTarget = qrTargets[Math.min(selectedQrIndex, qrTargets.length - 1)];
+
   function openRsvpForm() {
     const existing = event?.myAttendance;
     if (existing) {
@@ -173,6 +187,7 @@ export default function EventDetailScreen() {
       setGuestCount(String(existing.guestCount ?? 0));
       setGuestNames(existing.guestNames ?? []);
       setRemarks(existing.remarks ?? "");
+      setPaymentDate(new Date(existing.transactionDate ?? Date.now()).toLocaleDateString());
     }
     setShowRsvpForm(true);
   }
@@ -187,7 +202,10 @@ export default function EventDetailScreen() {
         paidTo: event!.creatorNickName,
         paidVia: event!.noPayment ? "N/A" : paidVia,
         amount: event!.noPayment ? 0 : Number(amount) || 0,
-        transactionDate: Date.now(),
+        transactionDate: (() => {
+          const parsed = Date.parse(paymentDate);
+          return Number.isNaN(parsed) ? Date.now() : parsed;
+        })(),
         guestCount: Number(guestCount) || 0,
         guestNames: guestNames.map((g) => g.trim()).filter((g) => g.length > 0),
         remarks: remarks || undefined,
@@ -320,6 +338,9 @@ export default function EventDetailScreen() {
               <Text style={styles.label}>Payment Method</Text>
               <TextInput style={styles.input} value={paidVia} onChangeText={setPaidVia} placeholder="e.g. Bank Transfer" />
 
+              <Text style={styles.label}>Payment Date</Text>
+              <TextInput style={styles.input} value={paymentDate} onChangeText={setPaymentDate} placeholder="DD/MM/YYYY" />
+
               <Text style={styles.label}>Upload Receipt(s)</Text>
               <View style={styles.attachRow}>
                 <TouchableOpacity style={styles.attachBtn} onPress={handlePickReceiptPhoto} disabled={uploadingReceipt}>
@@ -385,29 +406,54 @@ export default function EventDetailScreen() {
         </View>
       )}
 
+      {event.isRegistered && selectedQrTarget && (
+        <View style={styles.qrBox}>
+          <Text style={styles.registrationTitle}>Check-in QR Code: {selectedQrTarget.label}</Text>
+          <TouchableOpacity style={styles.qrPickerBtn} onPress={() => setShowQrPicker((s) => !s)}>
+            <Text style={styles.qrPickerLabel}>Show QR code for</Text>
+            <Text style={styles.qrPickerName}>{selectedQrTarget.label}</Text>
+            <Text style={styles.qrPickerHint}>
+              Tap the name above to switch between your RSVP and additional guests.
+            </Text>
+          </TouchableOpacity>
+          {showQrPicker && (
+            <View style={styles.qrPickerList}>
+              {qrTargets.map((t, i) => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={styles.qrPickerItem}
+                  onPress={() => {
+                    setSelectedQrIndex(i);
+                    setShowQrPicker(false);
+                  }}
+                >
+                  <Text style={[styles.qrPickerItemText, i === selectedQrIndex && styles.qrPickerItemTextActive]}>
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          <View style={styles.qrImageWrap}>
+            <QRCode value={JSON.stringify({ kind: selectedQrTarget.kind, id: selectedQrTarget.id })} size={200} />
+          </View>
+        </View>
+      )}
+
       {event.isHost && (
         <View style={styles.registrationBox}>
-          <Text style={styles.registrationTitle}>Registration ({attendees?.length ?? 0})</Text>
-          {attendees === undefined ? (
-            <ActivityIndicator size="small" color="#1C1B18" />
-          ) : attendees.length === 0 ? (
-            <Text style={styles.metaText}>No RSVPs yet.</Text>
-          ) : (
-            attendees.map((a) => (
-              <View key={a._id} style={styles.attendeeRow}>
-                <View>
-                  <Text style={styles.attendeeName}>
-                    {a.attendeeNickName}
-                    {!a.attending && " (not attending)"}
-                  </Text>
-                  {a.guestNames && a.guestNames.length > 0 && (
-                    <Text style={styles.metaText}>Guests: {a.guestNames.join(", ")}</Text>
-                  )}
-                </View>
-                {!event.noPayment && <Text style={styles.metaText}>{a.paidVia} · {a.amount}</Text>}
-              </View>
-            ))
-          )}
+          <TouchableOpacity
+            style={styles.hostActionBtn}
+            onPress={() => router.push({ pathname: "/(app)/event/rsvp-list", params: { eventId: id } })}
+          >
+            <Text style={styles.hostActionBtnText}>Check Registration</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.hostActionBtn}
+            onPress={() => router.push({ pathname: "/(app)/event/checkin-scan", params: { eventId: id } })}
+          >
+            <Text style={styles.hostActionBtnText}>Scan QR</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -435,6 +481,8 @@ const styles = StyleSheet.create({
   },
   calendarBtnText: { fontSize: 13, fontWeight: "700", color: "#1C1B18" },
   registrationBox: {
+    flexDirection: "row",
+    gap: 10,
     marginTop: 20,
     borderTopWidth: 1,
     borderTopColor: "#eee",
@@ -449,6 +497,50 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f5f5f5",
   },
   attendeeName: { fontSize: 14, color: "#1C1B18" },
+  hostActionBtn: {
+    flex: 1,
+    backgroundColor: "#1C1B18",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  hostActionBtnText: { color: "#F2650C", fontWeight: "700", fontSize: 14 },
+  qrBox: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    paddingTop: 16,
+    alignItems: "center",
+  },
+  qrPickerBtn: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  qrPickerLabel: { fontSize: 12, color: "#888" },
+  qrPickerName: { fontSize: 16, fontWeight: "700", color: "#1C1B18", marginVertical: 4 },
+  qrPickerHint: { fontSize: 11, color: "#999", textAlign: "center", marginTop: 4 },
+  qrPickerList: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 10,
+    marginBottom: 14,
+    overflow: "hidden",
+  },
+  qrPickerItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
+  },
+  qrPickerItemText: { fontSize: 14, color: "#666", textAlign: "center" },
+  qrPickerItemTextActive: { color: "#1C1B18", fontWeight: "700" },
+  qrImageWrap: { padding: 12, backgroundColor: "#fff", borderRadius: 12 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     backgroundColor: "#fff",

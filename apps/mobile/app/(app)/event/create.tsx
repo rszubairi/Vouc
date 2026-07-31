@@ -24,8 +24,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { IANA_TIMEZONES } from "../../../constants/timezones";
 import { EVENT_TYPES } from "../../../constants/eventTypes";
-import { LANGUAGES, ALL_LANGUAGES } from "../../../constants/languages";
-import { MARKETS, ALL_MARKETS } from "../../../constants/markets";
+import { ALL_LANGUAGES } from "../../../constants/languages";
+import { ALL_MARKETS } from "../../../constants/markets";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const TIMEZONES: string[] =
@@ -51,6 +51,8 @@ export default function CreateEventScreen() {
   const createEvent = useMutation(api.events.createEvent);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const directory = useQuery(api.profiles.listDirectory, {});
+  const languageOptions = useQuery(api.languages.list) ?? [];
+  const marketOptions = useQuery(api.markets.list) ?? [];
   const [submitting, setSubmitting] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -273,7 +275,7 @@ export default function CreateEventScreen() {
               All
             </Text>
           </TouchableOpacity>
-          {LANGUAGES.map((language) => (
+          {languageOptions.map((l) => l.name).map((language) => (
             <TouchableOpacity
               key={language}
               style={[styles.chip, languages.includes(language) && styles.chipActive]}
@@ -296,7 +298,7 @@ export default function CreateEventScreen() {
               All
             </Text>
           </TouchableOpacity>
-          {MARKETS.map((market) => (
+          {marketOptions.map((m) => m.name).map((market) => (
             <TouchableOpacity
               key={market}
               style={[styles.chip, markets.includes(market) && styles.chipActive]}

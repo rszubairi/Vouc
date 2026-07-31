@@ -16,6 +16,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import * as XLSX from "xlsx";
 import { Avatar } from "../../../components/Avatar";
 
 type Row = {
@@ -65,18 +66,71 @@ export default function RsvpListScreen() {
     if (!attendees) return;
     try {
       setExporting(true);
-      const header = "Name,City,RSVP On,Status\n";
-      const csvRows = rows
-        .map((r) =>
-          [r.name, r.city ?? "", new Date(r.rsvpOn).toLocaleDateString(), r.checkedIn ? "Present" : "Absent"]
-            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-            .join(",")
-        )
-        .join("\n");
-      const path = `${FileSystem.cacheDirectory}rsvp-list-${eventId}.csv`;
-      await FileSystem.writeAsStringAsync(path, header + csvRows);
+
+      const exportRows = attendees.flatMap((a) => {
+        const registeredOn = new Date(a._creationTime).toLocaleString();
+        const paymentDate = a.transactionDate ? new Date(a.transactionDate).toLocaleDateString() : "";
+
+        const main = {
+          Type: "Main Applicant",
+          Name: a.attendeeFullName || a.attendeeNickName,
+          "Nickname": a.attendeeNickName,
+          "Registered By": "",
+          Email: a.attendeeEmail ?? "",
+          Phone: a.attendeePhone ?? "",
+          City: a.attendeeCity ?? "",
+          Country: a.attendeeCountry ?? "",
+          Attending: a.attending ? "Yes" : "No",
+          "Guest Count": a.guestCount ?? 0,
+          "Paid By": a.paidBy ?? "",
+          "Paid To": a.paidTo ?? "",
+          "Paid Via": a.paidVia ?? "",
+          Amount: a.amount ?? 0,
+          "Payment Date": paymentDate,
+          Remarks: a.remarks ?? "",
+          "Registered On": registeredOn,
+          Status: a.hasAttended ? "Present" : "Absent",
+          "Checked In At": a.checkedInAt ? new Date(a.checkedInAt).toLocaleString() : "",
+        };
+
+        const guests = a.guests.map((g) => ({
+          Type: "Guest",
+          Name: g.name,
+          "Nickname": "",
+          "Registered By": a.attendeeFullName || a.attendeeNickName,
+          Email: a.attendeeEmail ?? "",
+          Phone: a.attendeePhone ?? "",
+          City: a.attendeeCity ?? "",
+          Country: a.attendeeCountry ?? "",
+          Attending: "",
+          "Guest Count": "",
+          "Paid By": "",
+          "Paid To": "",
+          "Paid Via": "",
+          Amount: "",
+          "Payment Date": "",
+          Remarks: "",
+          "Registered On": registeredOn,
+          Status: g.checkedIn ? "Present" : "Absent",
+          "Checked In At": g.checkedInAt ? new Date(g.checkedInAt).toLocaleString() : "",
+        }));
+
+        return [main, ...guests];
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "RSVP List");
+      const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+
+      const path = `${FileSystem.cacheDirectory}rsvp-list-${eventId}.xlsx`;
+      await FileSystem.writeAsStringAsync(path, base64, { encoding: FileSystem.EncodingType.Base64 });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: "Export RSVP List" });
+        await Sharing.shareAsync(path, {
+          mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          dialogTitle: "Export RSVP List",
+          UTI: "org.openxmlformats.spreadsheetml.sheet",
+        });
       } else {
         Alert.alert("Sharing unavailable", "Sharing isn't supported on this device.");
       }

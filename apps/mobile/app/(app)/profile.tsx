@@ -14,8 +14,8 @@ import { api } from "../../../../convex/_generated/api";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
-import { LANGUAGES, ALL_LANGUAGES } from "../../constants/languages";
-import { MARKETS, ALL_MARKETS } from "../../constants/markets";
+import { ALL_LANGUAGES } from "../../constants/languages";
+import { ALL_MARKETS } from "../../constants/markets";
 import { Avatar } from "../../components/Avatar";
 
 export default function ProfileScreen() {
@@ -27,6 +27,8 @@ export default function ProfileScreen() {
   const updateMyLanguages = useMutation(api.profiles.updateMyLanguages);
   const updateMyMarkets = useMutation(api.profiles.updateMyMarkets);
   const updateMyReferrer = useMutation(api.profiles.updateMyReferrer);
+  const languageOptions = useQuery(api.languages.list) ?? [];
+  const marketOptions = useQuery(api.markets.list) ?? [];
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -341,7 +343,7 @@ export default function ProfileScreen() {
               All
             </Text>
           </TouchableOpacity>
-          {LANGUAGES.map((language) => (
+          {languageOptions.map((l) => l.name).map((language) => (
             <TouchableOpacity
               key={language}
               style={[styles.chip, languages.includes(language) && styles.chipActive]}
@@ -377,7 +379,7 @@ export default function ProfileScreen() {
               All
             </Text>
           </TouchableOpacity>
-          {MARKETS.map((market) => (
+          {marketOptions.map((m) => m.name).map((market) => (
             <TouchableOpacity
               key={market}
               style={[styles.chip, markets.includes(market) && styles.chipActive]}

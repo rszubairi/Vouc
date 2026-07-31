@@ -415,7 +415,13 @@ export const getEventAttendees = query({
     return attendances.map((a, i) => ({
       ...a,
       attendeeNickName: attendeeProfiles[i]?.nickName ?? "Unknown",
+      attendeeFullName: attendeeProfiles[i]
+        ? [attendeeProfiles[i]!.firstName, attendeeProfiles[i]!.lastName].filter(Boolean).join(" ")
+        : "",
+      attendeeEmail: attendeeProfiles[i]?.emailAddress,
+      attendeePhone: attendeeProfiles[i]?.phoneNumber,
       attendeeCity: attendeeProfiles[i]?.city,
+      attendeeCountry: attendeeProfiles[i]?.country,
       guests: guestRows[i]
         .sort((g1, g2) => g1.order - g2.order)
         .map((g) => ({

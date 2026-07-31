@@ -24,8 +24,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { IANA_TIMEZONES } from "../../../constants/timezones";
-import { LANGUAGES, ALL_LANGUAGES } from "../../../constants/languages";
-import { MARKETS, ALL_MARKETS } from "../../../constants/markets";
+import { ALL_LANGUAGES } from "../../../constants/languages";
+import { ALL_MARKETS } from "../../../constants/markets";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 // Hermes doesn't reliably support Intl.supportedValuesOf, so fall back to
@@ -90,6 +90,8 @@ export default function CreateDiscussionScreen() {
   const createDiscussion = useMutation(api.discussions.createDiscussion);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const categories = useQuery(api.categories.list, { scope: "discussion" });
+  const languageOptions = useQuery(api.languages.list) ?? [];
+  const marketOptions = useQuery(api.markets.list) ?? [];
 
   const [topic, setTopic] = useState("");
   const [details, setDetails] = useState("");
@@ -343,7 +345,7 @@ export default function CreateDiscussionScreen() {
             All
           </Text>
         </TouchableOpacity>
-        {LANGUAGES.map((language) => (
+        {languageOptions.map((l) => l.name).map((language) => (
           <TouchableOpacity
             key={language}
             style={[styles.chip, languages.includes(language) && styles.chipActive]}
@@ -366,7 +368,7 @@ export default function CreateDiscussionScreen() {
             All
           </Text>
         </TouchableOpacity>
-        {MARKETS.map((market) => (
+        {marketOptions.map((m) => m.name).map((market) => (
           <TouchableOpacity
             key={market}
             style={[styles.chip, markets.includes(market) && styles.chipActive]}

@@ -83,6 +83,22 @@ export default defineSchema(
       displayOrder: v.number(),
     }),
 
+    // Admin-managed lookup lists backing event type / market / language pickers.
+    eventTypes: defineTable({
+      name: v.string(),
+      displayOrder: v.number(),
+    }),
+
+    markets: defineTable({
+      name: v.string(),
+      displayOrder: v.number(),
+    }),
+
+    languages: defineTable({
+      name: v.string(),
+      displayOrder: v.number(),
+    }),
+
     // ─── Hierarchy ────────────────────────────────────────────────────────────
 
     // Pre-computed flat map of the entire ancestor/descendant chain per profile.

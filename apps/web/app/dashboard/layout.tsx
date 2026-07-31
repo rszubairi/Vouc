@@ -14,6 +14,9 @@ import {
   faRankingStar,
   faRightFromBracket,
   faCodeBranch,
+  faCalendarDays,
+  faGlobe,
+  faLanguage,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../../../../convex/_generated/api";
 
@@ -24,6 +27,9 @@ const navItems = [
   { href: "/dashboard/divisions", label: "Divisions", icon: faLayerGroup },
   { href: "/dashboard/categories", label: "Categories", icon: faTags },
   { href: "/dashboard/ranks", label: "Membership Type", icon: faRankingStar },
+  { href: "/dashboard/event-types", label: "Event Types", icon: faCalendarDays },
+  { href: "/dashboard/markets", label: "Markets", icon: faGlobe },
+  { href: "/dashboard/languages", label: "Languages", icon: faLanguage },
   { href: "/dashboard/releases", label: "Releases", icon: faCodeBranch },
 ];
 

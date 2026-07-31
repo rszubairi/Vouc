@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { countEngagement, isEngagedBy } from "./engagements";
 
@@ -134,7 +134,12 @@ export const listItems = query({
     }
 
     const now = Date.now();
-    const results = [];
+
+    // Cheap pass: resolve every item that survives the id/date/category/type
+    // filters plus language/market targeting, without touching engagement or
+    // creator data yet. "All Directory Items" (categoryId undefined) can
+    // otherwise mean thousands of candidates here.
+    const candidates: { item: Doc<"libraryItems">; languages: string[]; markets: string[] }[] = [];
     for (const itemId of itemIds) {
       const item = await ctx.db.get(itemId);
       if (!item || item.isDeleted) continue;
@@ -146,7 +151,21 @@ export const listItems = query({
       const itemMarkets = await marketsFor(ctx, item._id);
       if (!matchesPreference(callerLanguages, itemLanguages)) continue;
       if (!matchesPreference(callerMarkets, itemMarkets)) continue;
+      candidates.push({ item, languages: itemLanguages, markets: itemMarkets });
+    }
 
+    // The expensive per-item work below (creator lookup + engagement
+    // queries) only needs to run over a bounded, most-recent slice —
+    // running it over every candidate is what made "All Directory Items"
+    // time out. Sorting by recency first keeps the result set correct for
+    // the default/"recent" sort and a close approximation for "liked"/
+    // "starred", while capping the read volume regardless of library size.
+    candidates.sort((a, b) => b.item.postDate - a.item.postDate);
+    const CANDIDATE_CAP = Math.max(limit * 5, 200);
+    const pool = candidates.slice(0, CANDIDATE_CAP);
+
+    const results = [];
+    for (const { item, languages: itemLanguages, markets: itemMarkets } of pool) {
       const creator = await ctx.db.get(item.userId);
       const creatorImage = creator
         ? await ctx.db

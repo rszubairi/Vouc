@@ -24,8 +24,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { IANA_TIMEZONES } from "../../../constants/timezones";
-import { LANGUAGES, ALL_LANGUAGES } from "../../../constants/languages";
-import { MARKETS, ALL_MARKETS } from "../../../constants/markets";
+import { ALL_LANGUAGES } from "../../../constants/languages";
+import { ALL_MARKETS } from "../../../constants/markets";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 // Hermes doesn't reliably support Intl.supportedValuesOf, so fall back to
@@ -118,6 +118,8 @@ export default function CreateLibraryItemScreen() {
   const createLibraryItem = useMutation(api.library.createLibraryItem);
   const createKnowledgeHubItem = useMutation(api.knowledgeHub.createItem);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
+  const languageOptions = useQuery(api.languages.list) ?? [];
+  const marketOptions = useQuery(api.markets.list) ?? [];
   const [submitting, setSubmitting] = useState(false);
 
   const [subject, setSubject] = useState("");
@@ -340,7 +342,7 @@ export default function CreateLibraryItemScreen() {
               All
             </Text>
           </TouchableOpacity>
-          {LANGUAGES.map((language) => (
+          {languageOptions.map((l) => l.name).map((language) => (
             <TouchableOpacity
               key={language}
               style={[styles.chip, languages.includes(language) && styles.chipActive]}
@@ -363,7 +365,7 @@ export default function CreateLibraryItemScreen() {
               All
             </Text>
           </TouchableOpacity>
-          {MARKETS.map((market) => (
+          {marketOptions.map((m) => m.name).map((market) => (
             <TouchableOpacity
               key={market}
               style={[styles.chip, markets.includes(market) && styles.chipActive]}

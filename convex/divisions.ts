@@ -52,7 +52,8 @@ export const seedDirectory = internalMutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("divisions").order("asc").collect();
+    const divisions = await ctx.db.query("divisions").order("asc").collect();
+    return divisions.filter((d) => !d.isDeleted);
   },
 });
 
@@ -85,6 +86,16 @@ export const remove = mutation({
   args: { id: v.id("divisions") },
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
-    await ctx.db.delete(id);
+    await ctx.db.patch(id, { isDeleted: true });
+  },
+});
+
+export const bulkRemove = mutation({
+  args: { ids: v.array(v.id("divisions")) },
+  handler: async (ctx, { ids }) => {
+    await requireAdmin(ctx);
+    for (const id of ids) {
+      await ctx.db.patch(id, { isDeleted: true });
+    }
   },
 });

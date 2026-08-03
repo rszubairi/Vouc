@@ -6,7 +6,9 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const markets = await ctx.db.query("markets").collect();
-    return markets.sort((a, b) => a.displayOrder - b.displayOrder);
+    return markets
+      .filter((m) => !m.isDeleted)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
   },
 });
 
@@ -37,7 +39,17 @@ export const remove = mutation({
   args: { id: v.id("markets") },
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
-    await ctx.db.delete(id);
+    await ctx.db.patch(id, { isDeleted: true });
+  },
+});
+
+export const bulkRemove = mutation({
+  args: { ids: v.array(v.id("markets")) },
+  handler: async (ctx, { ids }) => {
+    await requireAdmin(ctx);
+    for (const id of ids) {
+      await ctx.db.patch(id, { isDeleted: true });
+    }
   },
 });
 

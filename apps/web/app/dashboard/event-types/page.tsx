@@ -18,10 +18,41 @@ export default function EventTypesPage() {
   const create = useMutation(api.eventTypes.create);
   const update = useMutation(api.eventTypes.update);
   const remove = useMutation(api.eventTypes.remove);
+  const bulkRemove = useMutation(api.eventTypes.bulkRemove);
   const seed = useMutation(api.eventTypes.seed);
 
   const [editing, setEditing] = useState<EventType | null>(null);
   const [creating, setCreating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(ids);
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} selected event type(s)?`)) return;
+    setIsBulkDeleting(true);
+    try {
+      await bulkRemove({ ids: Array.from(selectedIds) as Id<"eventTypes">[] });
+      setSelectedIds(new Set());
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const columns: Column<EventType>[] = [
     { key: "name", label: "Name" },
@@ -34,11 +65,28 @@ export default function EventTypesPage() {
         <h2 className="text-2xl font-bold text-black">Event Types</h2>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
+          <button
+            onClick={handleBulkDelete}
+            disabled={isBulkDeleting}
+            className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {isBulkDeleting ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
+          </button>
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={eventTypes}
         getRowId={(r) => r._id}
         searchPlaceholder="Search event types..."
+        selectable
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+        onToggleAll={toggleAll}
         addButton={
           <div className="flex gap-3">
             {eventTypes?.length === 0 && (

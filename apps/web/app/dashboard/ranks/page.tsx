@@ -19,9 +19,40 @@ export default function RanksPage() {
   const create = useMutation(api.ranks.create);
   const update = useMutation(api.ranks.update);
   const remove = useMutation(api.ranks.remove);
+  const bulkRemove = useMutation(api.ranks.bulkRemove);
 
   const [editing, setEditing] = useState<Rank | null>(null);
   const [creating, setCreating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(ids);
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} selected membership type(s)?`)) return;
+    setIsBulkDeleting(true);
+    try {
+      await bulkRemove({ ids: Array.from(selectedIds) as Id<"userRanks">[] });
+      setSelectedIds(new Set());
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const columns: Column<Rank>[] = [
     { key: "name", label: "Name" },
@@ -35,11 +66,28 @@ export default function RanksPage() {
         <h2 className="text-2xl font-bold text-black">Membership Type</h2>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
+          <button
+            onClick={handleBulkDelete}
+            disabled={isBulkDeleting}
+            className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {isBulkDeleting ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
+          </button>
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={ranks}
         getRowId={(r) => r._id}
         searchPlaceholder="Search ranks..."
+        selectable
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+        onToggleAll={toggleAll}
         addButton={
           <button
             onClick={() => setCreating(true)}

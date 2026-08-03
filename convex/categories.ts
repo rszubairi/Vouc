@@ -94,6 +94,7 @@ export const list = query({
     const divisionsById = new Map(divisions.map((d) => [d._id, d]));
 
     return categories
+      .filter((c) => !c.isDeleted)
       .filter((c) => (scope ? (c.scope ?? "library") === scope : true))
       .map((c) => ({
         ...c,
@@ -148,6 +149,16 @@ export const remove = mutation({
   args: { id: v.id("categories") },
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
-    await ctx.db.delete(id);
+    await ctx.db.patch(id, { isDeleted: true });
+  },
+});
+
+export const bulkRemove = mutation({
+  args: { ids: v.array(v.id("categories")) },
+  handler: async (ctx, { ids }) => {
+    await requireAdmin(ctx);
+    for (const id of ids) {
+      await ctx.db.patch(id, { isDeleted: true });
+    }
   },
 });

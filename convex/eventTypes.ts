@@ -5,7 +5,8 @@ import { requireAdmin } from "./adminAuth";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("eventTypes").order("asc").collect();
+    const eventTypes = await ctx.db.query("eventTypes").order("asc").collect();
+    return eventTypes.filter((e) => !e.isDeleted);
   },
 });
 
@@ -36,7 +37,17 @@ export const remove = mutation({
   args: { id: v.id("eventTypes") },
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
-    await ctx.db.delete(id);
+    await ctx.db.patch(id, { isDeleted: true });
+  },
+});
+
+export const bulkRemove = mutation({
+  args: { ids: v.array(v.id("eventTypes")) },
+  handler: async (ctx, { ids }) => {
+    await requireAdmin(ctx);
+    for (const id of ids) {
+      await ctx.db.patch(id, { isDeleted: true });
+    }
   },
 });
 

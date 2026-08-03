@@ -81,22 +81,26 @@ export default defineSchema(
       name: v.string(),
       abbreviation: v.string(),
       displayOrder: v.number(),
+      isDeleted: v.optional(v.boolean()),
     }),
 
     // Admin-managed lookup lists backing event type / market / language pickers.
     eventTypes: defineTable({
       name: v.string(),
       displayOrder: v.number(),
+      isDeleted: v.optional(v.boolean()),
     }),
 
     markets: defineTable({
       name: v.string(),
       displayOrder: v.number(),
+      isDeleted: v.optional(v.boolean()),
     }),
 
     languages: defineTable({
       name: v.string(),
       displayOrder: v.number(),
+      isDeleted: v.optional(v.boolean()),
     }),
 
     // ─── Hierarchy ────────────────────────────────────────────────────────────
@@ -543,6 +547,7 @@ export default defineSchema(
       name: v.string(),
       description: v.optional(v.string()),
       displayOrder: v.number(),
+      isDeleted: v.optional(v.boolean()),
     }),
 
     categories: defineTable({
@@ -559,6 +564,7 @@ export default defineSchema(
       scope: v.optional(
         v.union(v.literal("library"), v.literal("discussion"), v.literal("knowledgeHub"))
       ),
+      isDeleted: v.optional(v.boolean()),
     })
       .index("by_divisionId", ["divisionId"])
       .index("by_scope", ["scope"]),

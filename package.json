@@ -5,6 +5,7 @@
     "apps/mobile",
     "apps/web"
   ],
+  "main": "expo-router/entry",
   "scripts": {
     "mobile": "npm -w apps/mobile start",
     "web": "npm -w apps/web dev",

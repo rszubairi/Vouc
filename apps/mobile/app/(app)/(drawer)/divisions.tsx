@@ -8,6 +8,22 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
+const DIVISION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  "professional services": "briefcase-outline",
+  "marketing, media & creative": "megaphone-outline",
+  "technology & engineering": "hardware-chip-outline",
+  "health, medical & wellness": "medkit-outline",
+  "education & training": "school-outline",
+  "construction, home & property": "hammer-outline",
+  "retail, food & hospitality": "storefront-outline",
+  "pets & animals": "paw-outline",
+  "community & organizations": "people-outline",
+};
+
+function getDivisionIcon(name: string): keyof typeof Ionicons.glyphMap {
+  return DIVISION_ICONS[name.trim().toLowerCase()] ?? "grid-outline";
+}
+
 export default function DivisionsScreen() {
   const router = useRouter();
   const divisions = useQuery(api.library.listDivisions, {});
@@ -97,6 +113,9 @@ export default function DivisionsScreen() {
               style={styles.cardHeader}
               onPress={() => setExpanded(isOpen ? null : division._id)}
             >
+              <View style={styles.titleIcon}>
+                <Ionicons name={getDivisionIcon(division.name)} size={20} color="#F2650C" />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>{division.name}</Text>
                 {division.description ? (
@@ -188,6 +207,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
+  },
+  titleIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FDECDD",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   title: { fontSize: 16, fontWeight: "700", color: "#1C1B18", marginBottom: 4 },
   desc: { fontSize: 13, color: "#666" },

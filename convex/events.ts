@@ -486,9 +486,11 @@ export const checkInAttendee = mutation({
       const event = await ctx.db.get(attendance.eventId);
       if (!event || event.isDeleted) throw new Error("Event not found");
       if (!(await isEventHost(ctx, event, profile._id))) throw new Error("Not authorized");
-      if (attendance.hasAttended) return { alreadyCheckedIn: true, name: undefined };
+      const attendeeProfile = await ctx.db.get(attendance.userId);
+      const attendeeName = attendeeProfile?.nickName ?? "Attendee";
+      if (attendance.hasAttended) return { alreadyCheckedIn: true, name: attendeeName };
       await ctx.db.patch(attendance._id, { hasAttended: true, checkedInAt: Date.now() });
-      return { alreadyCheckedIn: false };
+      return { alreadyCheckedIn: false, name: attendeeName };
     }
 
     const guest = await ctx.db.get(id as Id<"eventGuests">);

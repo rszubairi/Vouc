@@ -8,6 +8,7 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
@@ -39,6 +40,7 @@ export default function RsvpListScreen() {
   );
   const toggleAttendance = useMutation(api.events.toggleAttendance);
   const [exporting, setExporting] = useState(false);
+  const [search, setSearch] = useState("");
 
   const rows: Row[] = (attendees ?? []).flatMap((a) => {
     const main: Row = {
@@ -61,6 +63,11 @@ export default function RsvpListScreen() {
     }));
     return [main, ...guests];
   });
+
+  const sortedRows = [...rows].sort((a, b) => a.name.localeCompare(b.name));
+  const filteredRows = search.trim()
+    ? sortedRows.filter((row) => row.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : sortedRows;
 
   async function handleExport() {
     if (!attendees) return;
@@ -178,10 +185,27 @@ export default function RsvpListScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {rows.length > 0 && (
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={16} color="#888" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search attendees..."
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+        </View>
+      )}
       {rows.length === 0 ? (
         <Text style={styles.empty}>No RSVPs yet.</Text>
+      ) : filteredRows.length === 0 ? (
+        <Text style={styles.empty}>No attendees match "{search}".</Text>
       ) : (
-        rows.map((row) => (
+        filteredRows.map((row) => (
           <View key={row.key} style={styles.row}>
             <Avatar
               name={row.name}
@@ -210,6 +234,17 @@ const styles = StyleSheet.create({
   content: { padding: 12 },
   loader: { flex: 1, marginTop: 60 },
   empty: { textAlign: "center", color: "#666", marginTop: 40 },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    marginBottom: 12,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 14, color: "#1C1B18" },
   row: {
     flexDirection: "row",
     alignItems: "center",

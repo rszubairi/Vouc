@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Share,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
@@ -15,8 +17,11 @@ import { api } from "../../../../../convex/_generated/api";
 import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import * as Linking from "expo-linking";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
+import { WEB_APP_URL } from "../../../constants/links";
+import { toExcerpt } from "../../../utils/text";
 import { ScheduledBadge } from "../../../components/ScheduledBadge";
 import { Avatar } from "../../../components/Avatar";
 
@@ -101,6 +106,23 @@ export default function LibraryScreen() {
   function handleRefresh() {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 600);
+  }
+
+  async function handleShare(itemId: string, title: string, description: string) {
+    const appLink = Linking.createURL(`library/${itemId}`);
+    const webLink = `${WEB_APP_URL}/share/knowledge-hub/${itemId}`;
+    const excerpt = toExcerpt(description);
+    const message = `${title}\n\n${excerpt}`;
+    const fullMessage = `${message}\n\n${webLink}\n\nAlready have Vouch? ${appLink}`;
+    try {
+      await Share.share(
+        Platform.OS === "ios"
+          ? { message: fullMessage, title: title || "Vouch Knowledge Hub Item" }
+          : { message: fullMessage, title: title || "Vouch Knowledge Hub Item" }
+      );
+    } catch {
+      // user dismissed the native share sheet — nothing to do
+    }
   }
 
   if (!selectedCategoryId && !viewAll) {
@@ -256,6 +278,19 @@ export default function LibraryScreen() {
                   />
                   <Text style={styles.engagementText}>{item.starCount}</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.shareIcon}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleShare(item._id, item.title, item.description);
+                  }}
+                  hitSlop={8}
+                >
+                  <Ionicons name="share-outline" size={16} color="#666" />
+                </TouchableOpacity>
+                <Text style={styles.dateText}>
+                  {new Date(item.postDate).toLocaleDateString()}
+                </Text>
               </View>
             </TouchableOpacity>
           )}
@@ -442,6 +477,8 @@ const styles = StyleSheet.create({
   engagementRow: { flexDirection: "row", alignItems: "center", gap: 16, marginTop: 10 },
   engagementItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   engagementText: { fontSize: 12, color: "#666", fontWeight: "600" },
+  shareIcon: { marginLeft: "auto" },
+  dateText: { marginLeft: 12, fontSize: 12, color: "#aaa" },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
   modalSheet: {
     backgroundColor: "#fff",

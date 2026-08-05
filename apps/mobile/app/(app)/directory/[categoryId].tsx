@@ -43,13 +43,19 @@ export default function DirectoryCategoryScreen() {
     categoryId && !isAll ? { id: categoryId as Id<"categories"> } : "skip"
   );
   const [sort, setSort] = useState<SortMode>("recent");
+  const [onlyStarred, setOnlyStarred] = useState(false);
   const [sortVisible, setSortVisible] = useState(false);
   const items = useQuery(
     api.library.listItems,
     categoryId
-      ? { categoryId: isAll ? undefined : (categoryId as Id<"categories">), sortBy: sort }
+      ? {
+          categoryId: isAll ? undefined : (categoryId as Id<"categories">),
+          sortBy: sort,
+          onlyStarred: onlyStarred || undefined,
+        }
       : "skip"
   );
+  const activeFilterCount = (sort !== "recent" ? 1 : 0) + (onlyStarred ? 1 : 0);
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
@@ -107,9 +113,9 @@ export default function DirectoryCategoryScreen() {
           />
           <TouchableOpacity style={styles.filterIconBtn} onPress={() => setSortVisible(true)}>
             <Ionicons name="filter" size={18} color="#1C1B18" />
-            {sort !== "recent" && (
+            {activeFilterCount > 0 && (
               <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>1</Text>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -172,7 +178,7 @@ export default function DirectoryCategoryScreen() {
                   <Text style={styles.engagementText}>{item.commentCount}</Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.engagementItem}
+                  style={styles.starIcon}
                   onPress={(e) => {
                     e.stopPropagation();
                     toggleEngagement({ targetType: "libraryItem", targetId: item._id, kind: "Star" });
@@ -250,11 +256,17 @@ export default function DirectoryCategoryScreen() {
               >
                 <Text style={[styles.chipText, sort === "liked" && styles.chipTextActive]}>Most Liked</Text>
               </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Starred</Text>
+            <View style={styles.chipRow}>
               <TouchableOpacity
-                style={[styles.chip, sort === "starred" && styles.chipActive]}
-                onPress={() => setSort("starred")}
+                style={[styles.chip, onlyStarred && styles.chipActive]}
+                onPress={() => setOnlyStarred((v) => !v)}
               >
-                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Starred</Text>
+                <Text style={[styles.chipText, onlyStarred && styles.chipTextActive]}>
+                  {onlyStarred ? "Showing starred only" : "Show starred only"}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -325,6 +337,7 @@ const styles = StyleSheet.create({
   engagementRow: { flexDirection: "row", alignItems: "center", gap: 16, marginTop: 10 },
   engagementItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   engagementText: { fontSize: 12, color: "#666", fontWeight: "600" },
+  starIcon: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" },
   shareIcon: { marginLeft: "auto" },
   dateText: { marginLeft: 12, fontSize: 12, color: "#aaa" },
   filterIconBtn: {

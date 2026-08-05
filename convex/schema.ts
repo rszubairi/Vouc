@@ -238,7 +238,8 @@ export default defineSchema(
         v.literal("discussion"),
         v.literal("libraryItem"),
         v.literal("knowledgeHubItem"),
-        v.literal("profile")
+        v.literal("profile"),
+        v.literal("event")
       ),
       targetId: v.string(),
       kind: v.union(v.literal("Like"), v.literal("Star")),

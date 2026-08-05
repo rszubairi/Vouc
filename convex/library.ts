@@ -85,8 +85,9 @@ export const listItems = query({
     sortBy: v.optional(
       v.union(v.literal("recent"), v.literal("liked"), v.literal("starred"))
     ),
+    onlyStarred: v.optional(v.boolean()),
   },
-  handler: async (ctx, { categoryId, type, limit = 30, sortBy = "recent" }) => {
+  handler: async (ctx, { categoryId, type, limit = 30, sortBy = "recent", onlyStarred }) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return [];
 
@@ -204,14 +205,14 @@ export const listItems = query({
     }
 
     let filtered = results;
+    // "Starred" surfaces items the caller has starred — a distinct
+    // "save for later" engagement from the heart "Like" button — not a
+    // global popularity sort by everyone's star count.
+    if (onlyStarred || sortBy === "starred") {
+      filtered = filtered.filter((r) => r.isStarred);
+    }
     if (sortBy === "liked") {
       filtered.sort((a, b) => b.likeCount - a.likeCount || b.postDate - a.postDate);
-    } else if (sortBy === "starred") {
-      // "Starred" surfaces items the caller has starred — a distinct
-      // "save for later" engagement from the heart "Like" button — not a
-      // global popularity sort by everyone's star count.
-      filtered = results.filter((r) => r.isStarred);
-      filtered.sort((a, b) => b.postDate - a.postDate);
     } else {
       filtered.sort((a, b) => b.postDate - a.postDate);
     }

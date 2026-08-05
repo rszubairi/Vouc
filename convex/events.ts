@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { requireAdmin } from "./adminAuth";
+import { countEngagement, isEngagedBy } from "./engagements";
 
 const attachmentInput = v.object({
   storageId: v.id("_storage"),
@@ -256,8 +257,9 @@ export const calendarEvents = query({
   args: {
     startDate: v.number(),
     endDate: v.number(),
+    onlyStarred: v.optional(v.boolean()),
   },
-  handler: async (ctx, { startDate, endDate }) => {
+  handler: async (ctx, { startDate, endDate, onlyStarred }) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return [];
 
@@ -302,7 +304,10 @@ export const calendarEvents = query({
       const itemMarkets = await marketsFor(ctx, eventId);
       if (!matchesPreference(callerLanguages, itemLanguages)) continue;
       if (!matchesPreference(callerMarkets, itemMarkets)) continue;
-      results.push(event);
+      const starCount = await countEngagement(ctx, "event", event._id, "Star");
+      const isStarred = await isEngagedBy(ctx, "event", event._id, "Star", callerProfile._id);
+      if (onlyStarred && !isStarred) continue;
+      results.push({ ...event, starCount, isStarred });
     }
 
     results.sort((a, b) => a.eventDateStart - b.eventDateStart);

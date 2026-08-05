@@ -47,6 +47,7 @@ export default function LibraryScreen() {
   // category (or a category the reader hasn't tapped into) stay reachable.
   const [viewAll, setViewAll] = useState(false);
   const [sort, setSort] = useState<SortMode>("recent");
+  const [onlyStarred, setOnlyStarred] = useState(false);
   const [sortVisible, setSortVisible] = useState(false);
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
 
@@ -67,9 +68,11 @@ export default function LibraryScreen() {
   const items = useQuery(
     api.knowledgeHub.listItems,
     selectedCategoryId || viewAll
-      ? { categoryId: selectedCategoryId ?? undefined, sortBy: sort }
+      ? { categoryId: selectedCategoryId ?? undefined, sortBy: sort, onlyStarred: onlyStarred || undefined }
       : "skip"
   );
+
+  const activeFilterCount = (sort !== "recent" ? 1 : 0) + (onlyStarred ? 1 : 0);
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
@@ -199,9 +202,9 @@ export default function LibraryScreen() {
           />
           <TouchableOpacity style={styles.filterIconBtn} onPress={() => setSortVisible(true)}>
             <Ionicons name="filter" size={18} color="#1C1B18" />
-            {sort !== "recent" && (
+            {activeFilterCount > 0 && (
               <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>1</Text>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -264,7 +267,7 @@ export default function LibraryScreen() {
                   <Text style={styles.engagementText}>{item.commentCount}</Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.engagementItem}
+                  style={styles.starIcon}
                   onPress={(e) => {
                     e.stopPropagation();
                     toggleEngagement({ targetType: "knowledgeHubItem", targetId: item._id, kind: "Star" });
@@ -338,11 +341,17 @@ export default function LibraryScreen() {
               >
                 <Text style={[styles.chipText, sort === "liked" && styles.chipTextActive]}>Most Liked</Text>
               </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Starred</Text>
+            <View style={styles.chipRow}>
               <TouchableOpacity
-                style={[styles.chip, sort === "starred" && styles.chipActive]}
-                onPress={() => setSort("starred")}
+                style={[styles.chip, onlyStarred && styles.chipActive]}
+                onPress={() => setOnlyStarred((v) => !v)}
               >
-                <Text style={[styles.chipText, sort === "starred" && styles.chipTextActive]}>Starred</Text>
+                <Text style={[styles.chipText, onlyStarred && styles.chipTextActive]}>
+                  {onlyStarred ? "Showing starred only" : "Show starred only"}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -477,6 +486,7 @@ const styles = StyleSheet.create({
   engagementRow: { flexDirection: "row", alignItems: "center", gap: 16, marginTop: 10 },
   engagementItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   engagementText: { fontSize: 12, color: "#666", fontWeight: "600" },
+  starIcon: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" },
   shareIcon: { marginLeft: "auto" },
   dateText: { marginLeft: 12, fontSize: 12, color: "#aaa" },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },

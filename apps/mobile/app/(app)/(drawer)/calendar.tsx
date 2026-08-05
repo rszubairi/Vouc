@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, RefreshControl, Modal } from "react-native";
 import { useMemo, useState } from "react";
 import { Calendar } from "react-native-calendars";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../../../../convex/_generated/api";
 import { useRouter } from "expo-router";
 import { usePullReveal } from "../../../hooks/usePullReveal";
@@ -9,11 +10,14 @@ import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
 export default function CalendarScreen() {
   const router = useRouter();
+  const toggleEngagement = useMutation(api.engagements.toggleEngagement);
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [onlyStarred, setOnlyStarred] = useState(false);
+  const [sortVisible, setSortVisible] = useState(false);
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
   useHeaderSearchButton(searchVisible, toggleSearch);
 
@@ -32,6 +36,7 @@ export default function CalendarScreen() {
   const events = useQuery(api.events.calendarEvents, {
     startDate: startOfMonth.getTime(),
     endDate: endOfMonth.getTime(),
+    onlyStarred: onlyStarred || undefined,
   });
 
   // Build marked dates for calendar
@@ -93,14 +98,24 @@ export default function CalendarScreen() {
         </Text>
 
         {searchVisible && (
-          <TextInput
-            style={styles.search}
-            placeholder="Search events"
-            placeholderTextColor="#999"
-            value={search}
-            onChangeText={setSearch}
-            autoFocus
-          />
+          <View style={styles.searchBar}>
+            <TextInput
+              style={styles.search}
+              placeholder="Search events"
+              placeholderTextColor="#999"
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+            />
+            <TouchableOpacity style={styles.filterIconBtn} onPress={() => setSortVisible(true)}>
+              <Ionicons name="filter" size={18} color="#1C1B18" />
+              {onlyStarred && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>1</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
 
         {events === undefined ? (
@@ -114,7 +129,23 @@ export default function CalendarScreen() {
               style={styles.eventCard}
               onPress={() => router.push(`/(app)/event/${event._id}`)}
             >
-              <Text style={styles.eventType}>{event.eventTypes?.join(", ")}</Text>
+              <View style={styles.eventTypeRow}>
+                <Text style={styles.eventType}>{event.eventTypes?.join(", ")}</Text>
+                <TouchableOpacity
+                  style={styles.starIcon}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    toggleEngagement({ targetType: "event", targetId: event._id, kind: "Star" });
+                  }}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={event.isStarred ? "star" : "star-outline"}
+                    size={16}
+                    color={event.isStarred ? "#F2650C" : "#666"}
+                  />
+                </TouchableOpacity>
+              </View>
               <Text style={styles.eventTitle}>{event.title}</Text>
               <Text style={styles.eventTime}>
                 {new Date(event.eventDateStart).toLocaleTimeString([], {
@@ -138,6 +169,35 @@ export default function CalendarScreen() {
       <TouchableOpacity style={styles.fab} onPress={() => router.push("/(app)/event/create")}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+
+      <Modal visible={sortVisible} animationType="slide" transparent onRequestClose={() => setSortVisible(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSortVisible(false)}>
+          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Filter Events</Text>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSortVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Starred</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, onlyStarred && styles.chipActive]}
+                onPress={() => setOnlyStarred((v) => !v)}
+              >
+                <Text style={[styles.chipText, onlyStarred && styles.chipTextActive]}>
+                  {onlyStarred ? "Showing starred only" : "Show starred only"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.applyBtn} onPress={() => setSortVisible(false)}>
+              <Text style={styles.applyBtnText}>Apply</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -153,7 +213,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   noEvents: { color: "#888", fontSize: 15 },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
   search: {
+    flex: 1,
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 10,
@@ -161,8 +223,30 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     backgroundColor: "#fff",
-    marginBottom: 14,
   },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#F2650C",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  filterBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
   eventCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -174,7 +258,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  eventTypeRow: { flexDirection: "row", alignItems: "center" },
   eventType: { fontSize: 12, color: "#888", marginBottom: 4, textTransform: "uppercase" },
+  starIcon: { marginLeft: "auto" },
   eventTitle: { fontSize: 16, fontWeight: "700", color: "#1C1B18", marginBottom: 4 },
   eventTime: { fontSize: 13, color: "#555" },
   eventSpeaker: { fontSize: 13, color: "#888", marginTop: 4 },
@@ -191,4 +277,43 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabText: { color: "#fff", fontSize: 30, lineHeight: 34 },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  modalSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1B18" },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FAF5EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalLabel: { fontSize: 13, fontWeight: "700", color: "#888", marginBottom: 8, marginTop: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    backgroundColor: "#FAF5EA",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  chipActive: { backgroundColor: "#1C1B18", borderColor: "#1C1B18" },
+  chipText: { fontSize: 13, color: "#1C1B18", fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  applyBtn: {
+    backgroundColor: "#1C1B18",
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  applyBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });

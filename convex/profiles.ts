@@ -487,6 +487,8 @@ export const listDirectory = query({
       enriched.sort((a, b) => b.likeCount - a.likeCount || b._creationTime - a._creationTime);
     } else if (sort === "starred") {
       enriched.sort((a, b) => b.starCount - a.starCount || b._creationTime - a._creationTime);
+    } else {
+      enriched.sort((a, b) => a.nickName.localeCompare(b.nickName));
     }
 
     return enriched;

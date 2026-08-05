@@ -11,20 +11,28 @@ type EventType = {
   _id: Id<"eventTypes">;
   name: string;
   displayOrder: number;
+  isDeleted?: boolean;
 };
 
 export default function EventTypesPage() {
-  const eventTypes = useQuery(api.eventTypes.list);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const eventTypes = useQuery(api.eventTypes.list, { includeDeleted: showDeleted });
   const create = useMutation(api.eventTypes.create);
   const update = useMutation(api.eventTypes.update);
   const remove = useMutation(api.eventTypes.remove);
   const bulkRemove = useMutation(api.eventTypes.bulkRemove);
+  const bulkRestore = useMutation(api.eventTypes.bulkRestore);
   const seed = useMutation(api.eventTypes.seed);
 
   const [editing, setEditing] = useState<EventType | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkRestoring, setIsBulkRestoring] = useState(false);
+
+  const visibleEventTypes = showDeleted
+    ? (eventTypes ?? []).filter((e) => e.isDeleted)
+    : eventTypes;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -54,6 +62,17 @@ export default function EventTypesPage() {
     }
   };
 
+  const handleBulkRestore = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkRestoring(true);
+    try {
+      await bulkRestore({ ids: Array.from(selectedIds) as Id<"eventTypes">[] });
+      setSelectedIds(new Set());
+    } finally {
+      setIsBulkRestoring(false);
+    }
+  };
+
   const columns: Column<EventType>[] = [
     { key: "name", label: "Name" },
     { key: "displayOrder", label: "Order" },
@@ -63,24 +82,45 @@ export default function EventTypesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-black">Event Types</h2>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={showDeleted}
+            onChange={(e) => {
+              setShowDeleted(e.target.checked);
+              setSelectedIds(new Set());
+            }}
+          />
+          Show deleted
+        </label>
       </div>
 
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 mb-4">
           <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
-          <button
-            onClick={handleBulkDelete}
-            disabled={isBulkDeleting}
-            className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {isBulkDeleting ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
-          </button>
+          {showDeleted ? (
+            <button
+              onClick={handleBulkRestore}
+              disabled={isBulkRestoring}
+              className="text-sm px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:border-[#F2650C] hover:text-[#F2650C] disabled:opacity-50"
+            >
+              {isBulkRestoring ? "Restoring..." : `Reactivate Selected (${selectedIds.size})`}
+            </button>
+          ) : (
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {isBulkDeleting ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
+            </button>
+          )}
         </div>
       )}
 
       <DataTable
         columns={columns}
-        data={eventTypes}
+        data={visibleEventTypes}
         getRowId={(r) => r._id}
         searchPlaceholder="Search event types..."
         selectable
@@ -88,38 +128,51 @@ export default function EventTypesPage() {
         onToggleSelect={toggleSelect}
         onToggleAll={toggleAll}
         addButton={
-          <div className="flex gap-3">
-            {eventTypes?.length === 0 && (
+          !showDeleted && (
+            <div className="flex gap-3">
+              {eventTypes?.length === 0 && (
+                <button
+                  onClick={() => seed({})}
+                  className="bg-white border border-gray-200 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Seed defaults
+                </button>
+              )}
               <button
-                onClick={() => seed({})}
-                className="bg-white border border-gray-200 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => setCreating(true)}
+                className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-neutral-800 transition-colors"
               >
-                Seed defaults
+                + Add Event Type
               </button>
-            )}
-            <button
-              onClick={() => setCreating(true)}
-              className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-neutral-800 transition-colors"
-            >
-              + Add Event Type
-            </button>
-          </div>
+            </div>
+          )
         }
-        actions={(row) => (
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setEditing(row)} className="text-sm text-blue-600 hover:underline">
-              Edit
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`Delete event type "${row.name}"?`)) remove({ id: row._id });
-              }}
-              className="text-sm text-red-600 hover:underline"
-            >
-              Delete
-            </button>
-          </div>
-        )}
+        actions={(row) =>
+          showDeleted ? (
+            <div className="flex justify-end">
+              <button
+                onClick={() => bulkRestore({ ids: [row._id] })}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Reactivate
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setEditing(row)} className="text-sm text-blue-600 hover:underline">
+                Edit
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`Delete event type "${row.name}"?`)) remove({ id: row._id });
+                }}
+                className="text-sm text-red-600 hover:underline"
+              >
+                Delete
+              </button>
+            </div>
+          )
+        }
       />
 
       {(creating || editing) && (

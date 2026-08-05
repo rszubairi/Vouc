@@ -521,13 +521,14 @@ export const listAll = query({
 
 // Admin: every profile plus its sponsorId, for building a hierarchy tree client-side.
 export const adminHierarchyTree = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { includeDeleted: v.optional(v.boolean()) },
+  handler: async (ctx, { includeDeleted }) => {
     await requireAdmin(ctx);
-    const profiles = (await ctx.db.query("profiles").order("desc").take(1000)).filter(
-      (p) => !p.deleteAccount
-    );
-    const byId = new Map(profiles.map((p) => [p._id, p]));
+    const allProfiles = await ctx.db.query("profiles").order("desc").take(1000);
+    const profiles = includeDeleted
+      ? allProfiles.filter((p) => p.deleteAccount)
+      : allProfiles.filter((p) => !p.deleteAccount);
+    const byId = new Map(allProfiles.map((p) => [p._id, p]));
     return profiles.map((p) => ({
       _id: p._id,
       nickName: p.nickName,
@@ -662,6 +663,20 @@ export const adminBulkDeleteProfiles = mutation({
       await ctx.db.patch(profileId, {
         deleteAccount: true,
         deleteRequestDate: now,
+      });
+    }
+  },
+});
+
+// Admin restores multiple soft-deleted profiles at once.
+export const adminBulkRestoreProfiles = mutation({
+  args: { profileIds: v.array(v.id("profiles")) },
+  handler: async (ctx, { profileIds }) => {
+    await requireAdmin(ctx);
+    for (const profileId of profileIds) {
+      await ctx.db.patch(profileId, {
+        deleteAccount: false,
+        deleteRequestDate: undefined,
       });
     }
   },

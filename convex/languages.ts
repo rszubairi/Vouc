@@ -3,11 +3,11 @@ import { v } from "convex/values";
 import { requireAdmin } from "./adminAuth";
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { includeDeleted: v.optional(v.boolean()) },
+  handler: async (ctx, { includeDeleted }) => {
     const languages = await ctx.db.query("languages").collect();
     return languages
-      .filter((l) => !l.isDeleted)
+      .filter((l) => (includeDeleted ? true : !l.isDeleted))
       .sort((a, b) => a.displayOrder - b.displayOrder);
   },
 });
@@ -49,6 +49,16 @@ export const bulkRemove = mutation({
     await requireAdmin(ctx);
     for (const id of ids) {
       await ctx.db.patch(id, { isDeleted: true });
+    }
+  },
+});
+
+export const bulkRestore = mutation({
+  args: { ids: v.array(v.id("languages")) },
+  handler: async (ctx, { ids }) => {
+    await requireAdmin(ctx);
+    for (const id of ids) {
+      await ctx.db.patch(id, { isDeleted: false });
     }
   },
 });

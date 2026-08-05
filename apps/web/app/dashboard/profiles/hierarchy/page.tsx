@@ -15,14 +15,17 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 export default function HierarchyPage() {
-  const nodes = useQuery(api.profiles.adminHierarchyTree);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const nodes = useQuery(api.profiles.adminHierarchyTree, { includeDeleted: showDeleted });
   const setSponsor = useMutation(api.profiles.adminSetSponsor);
   const bulkDelete = useMutation(api.profiles.adminBulkDeleteProfiles);
+  const bulkRestore = useMutation(api.profiles.adminBulkRestoreProfiles);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>("nickName");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const allIds = useMemo(() => nodes?.map((n) => n._id as string) ?? [], [nodes]);
 
@@ -77,6 +80,19 @@ export default function HierarchyPage() {
     }
   };
 
+  const handleBulkRestore = async () => {
+    if (selectedIds.size === 0) return;
+    setIsRestoring(true);
+    try {
+      await bulkRestore({ profileIds: Array.from(selectedIds) as Id<"profiles">[] });
+      setSelectedIds(new Set());
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to restore selected profiles.");
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -115,29 +131,54 @@ export default function HierarchyPage() {
           </select>
         </div>
 
+        <label className="flex items-center gap-2 text-sm text-gray-600 ml-2">
+          <input
+            type="checkbox"
+            checked={showDeleted}
+            onChange={(e) => {
+              setShowDeleted(e.target.checked);
+              setSelectedIds(new Set());
+            }}
+          />
+          Show deleted
+        </label>
+
         <div className="flex-1" />
 
-        {selectedIds.size > 0 && (
-          <button
-            onClick={handleBulkDelete}
-            disabled={isDeleting}
-            className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {isDeleting ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
-          </button>
-        )}
+        {selectedIds.size > 0 &&
+          (showDeleted ? (
+            <button
+              onClick={handleBulkRestore}
+              disabled={isRestoring}
+              className="text-sm px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:border-[#F2650C] hover:text-[#F2650C] disabled:opacity-50"
+            >
+              {isRestoring ? "Restoring..." : `Reactivate Selected (${selectedIds.size})`}
+            </button>
+          ) : (
+            <button
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {isDeleting ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
+            </button>
+          ))}
       </div>
 
-      <p className="text-xs text-gray-400 mb-3">
-        Drag a profile onto another to change its sponsor. Drop at the top of the list to make it a
-        root profile.
-      </p>
+      {!showDeleted && (
+        <p className="text-xs text-gray-400 mb-3">
+          Drag a profile onto another to change its sponsor. Drop at the top of the list to make it a
+          root profile.
+        </p>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         {nodes === undefined ? (
           <p className="text-gray-400 text-sm">Loading...</p>
         ) : nodes.length === 0 ? (
-          <p className="text-gray-400 text-sm">No profiles found.</p>
+          <p className="text-gray-400 text-sm">
+            {showDeleted ? "No deleted profiles found." : "No profiles found."}
+          </p>
         ) : (
           <HierarchyTree
             nodes={nodes}
@@ -146,7 +187,7 @@ export default function HierarchyPage() {
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             sortKey={sortKey}
-            onReparent={handleReparent}
+            onReparent={showDeleted ? () => {} : handleReparent}
           />
         )}
       </div>

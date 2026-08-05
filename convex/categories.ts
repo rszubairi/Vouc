@@ -87,14 +87,15 @@ export const list = query({
     scope: v.optional(
       v.union(v.literal("library"), v.literal("discussion"), v.literal("knowledgeHub"))
     ),
+    includeDeleted: v.optional(v.boolean()),
   },
-  handler: async (ctx, { scope }) => {
+  handler: async (ctx, { scope, includeDeleted }) => {
     const categories = await ctx.db.query("categories").order("asc").collect();
     const divisions = await ctx.db.query("divisions").collect();
     const divisionsById = new Map(divisions.map((d) => [d._id, d]));
 
     return categories
-      .filter((c) => !c.isDeleted)
+      .filter((c) => (includeDeleted ? true : !c.isDeleted))
       .filter((c) => (scope ? (c.scope ?? "library") === scope : true))
       .map((c) => ({
         ...c,
@@ -159,6 +160,16 @@ export const bulkRemove = mutation({
     await requireAdmin(ctx);
     for (const id of ids) {
       await ctx.db.patch(id, { isDeleted: true });
+    }
+  },
+});
+
+export const bulkRestore = mutation({
+  args: { ids: v.array(v.id("categories")) },
+  handler: async (ctx, { ids }) => {
+    await requireAdmin(ctx);
+    for (const id of ids) {
+      await ctx.db.patch(id, { isDeleted: false });
     }
   },
 });

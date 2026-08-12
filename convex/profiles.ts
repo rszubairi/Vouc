@@ -497,12 +497,11 @@ export const listDirectory = query({
 
 // Get list of all profiles (admin use), enriched with sponsor + membership type names.
 export const listAll = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { includeDeleted: v.optional(v.boolean()) },
+  handler: async (ctx, { includeDeleted }) => {
     await requireAdmin(ctx);
-    const profiles = (await ctx.db.query("profiles").order("desc").take(1000)).filter(
-      (p) => !p.deleteAccount
-    );
+    const allProfiles = await ctx.db.query("profiles").order("desc").take(1000);
+    const profiles = includeDeleted ? allProfiles : allProfiles.filter((p) => !p.deleteAccount);
 
     const sponsors = await Promise.all(
       profiles.map((p) => (p.sponsorId ? ctx.db.get(p.sponsorId) : null))

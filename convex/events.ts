@@ -257,9 +257,10 @@ export const calendarEvents = query({
   args: {
     startDate: v.number(),
     endDate: v.number(),
+    sortBy: v.optional(v.union(v.literal("recent"), v.literal("liked"))),
     onlyStarred: v.optional(v.boolean()),
   },
-  handler: async (ctx, { startDate, endDate, onlyStarred }) => {
+  handler: async (ctx, { startDate, endDate, sortBy = "recent", onlyStarred }) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return [];
 
@@ -307,10 +308,16 @@ export const calendarEvents = query({
       const starCount = await countEngagement(ctx, "event", event._id, "Star");
       const isStarred = await isEngagedBy(ctx, "event", event._id, "Star", callerProfile._id);
       if (onlyStarred && !isStarred) continue;
-      results.push({ ...event, starCount, isStarred });
+      const likeCount = await countEngagement(ctx, "event", event._id, "Like");
+      const isLiked = await isEngagedBy(ctx, "event", event._id, "Like", callerProfile._id);
+      results.push({ ...event, starCount, isStarred, likeCount, isLiked });
     }
 
-    results.sort((a, b) => a.eventDateStart - b.eventDateStart);
+    if (sortBy === "liked") {
+      results.sort((a, b) => b.likeCount - a.likeCount || a.eventDateStart - b.eventDateStart);
+    } else {
+      results.sort((a, b) => a.eventDateStart - b.eventDateStart);
+    }
     return results;
   },
 });

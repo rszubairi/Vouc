@@ -252,7 +252,10 @@ export default function EventDetailScreen() {
           {addingToCalendar ? (
             <ActivityIndicator size="small" color="#1C1B18" />
           ) : (
-            <Text style={styles.calendarBtnText}>📅 Save</Text>
+            <View style={styles.calendarBtnContent}>
+              <Ionicons name="calendar-outline" size={16} color="#1C1B18" />
+              <Text style={styles.calendarBtnText}>Save</Text>
+            </View>
           )}
         </TouchableOpacity>
       </View>
@@ -283,16 +286,25 @@ export default function EventDetailScreen() {
       )}
 
       <View style={styles.statsRow}>
-        <Text style={styles.statText}>👥 {event.attendeeCount} attending</Text>
-        <Text style={styles.statText}>❤️ {event.likeCount}</Text>
-        <Text style={styles.statText}>💬 {event.commentCount}</Text>
+        <View style={styles.statItem}>
+          <Ionicons name="people-outline" size={15} color="#555" />
+          <Text style={styles.statText}>{event.attendeeCount} attending</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="heart-outline" size={15} color="#555" />
+          <Text style={styles.statText}>{event.likeCount}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="chatbubble-outline" size={15} color="#555" />
+          <Text style={styles.statText}>{event.commentCount}</Text>
+        </View>
       </View>
 
       {!showRsvpForm ? (
         event.isRegistered ? (
           <View style={styles.registeredRow}>
             <View style={styles.registeredBadge}>
-              <Ionicons name="checkmark-circle" size={18} color="#2e7d32" />
+              <Ionicons name="checkmark-circle-outline" size={18} color="#2e7d32" />
               <Text style={styles.registeredBadgeText}>You're registered for this event</Text>
             </View>
             <TouchableOpacity style={styles.editRsvpBtn} onPress={openRsvpForm}>
@@ -479,6 +491,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  calendarBtnContent: { flexDirection: "row", alignItems: "center", gap: 6 },
   calendarBtnText: { fontSize: 13, fontWeight: "700", color: "#1C1B18" },
   registrationBox: {
     flexDirection: "row",
@@ -586,6 +599,7 @@ const styles = StyleSheet.create({
   details: { fontSize: 15, color: "#222", lineHeight: 22, marginVertical: 14 },
   link: { color: "#F2650C", fontSize: 14, marginBottom: 14 },
   statsRow: { flexDirection: "row", gap: 16, marginVertical: 14 },
+  statItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   statText: { fontSize: 13, color: "#555" },
   rsvpBtn: {
     backgroundColor: "#1C1B18",

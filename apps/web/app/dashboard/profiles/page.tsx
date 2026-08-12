@@ -41,20 +41,28 @@ type Profile = {
   fullAccess: boolean;
   isAdmin?: boolean;
   isDisabled?: boolean;
+  deleteAccount?: boolean;
 };
 
 export default function ProfilesPage() {
-  const profiles = useQuery(api.profiles.listAll);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const profiles = useQuery(api.profiles.listAll, { includeDeleted: showDeleted });
   const ranks = useQuery(api.profiles.listRanks);
   const setFullAccess = useMutation(api.profiles.adminSetFullAccess);
   const deleteProfile = useMutation(api.profiles.adminDeleteProfile);
   const updateProfile = useMutation(api.profiles.adminUpdateProfile);
   const setDisabled = useMutation(api.profiles.adminSetDisabled);
-  const bulkSetDisabled = useMutation(api.profiles.adminBulkSetDisabled);
+  const bulkDelete = useMutation(api.profiles.adminBulkDeleteProfiles);
+  const bulkRestore = useMutation(api.profiles.adminBulkRestoreProfiles);
 
   const [editing, setEditing] = useState<Profile | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkRestoring, setIsBulkRestoring] = useState(false);
+
+  const visibleProfiles = showDeleted
+    ? (profiles ?? []).filter((p) => p.deleteAccount)
+    : profiles;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -72,17 +80,26 @@ export default function ProfilesPage() {
     });
   };
 
-  const handleBulkSetDisabled = async (isDisabled: boolean) => {
+  const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    setIsBulkUpdating(true);
+    if (!confirm(`Delete ${selectedIds.size} selected profile(s)?`)) return;
+    setIsBulkDeleting(true);
     try {
-      await bulkSetDisabled({
-        profileIds: Array.from(selectedIds) as Id<"profiles">[],
-        isDisabled,
-      });
+      await bulkDelete({ profileIds: Array.from(selectedIds) as Id<"profiles">[] });
       setSelectedIds(new Set());
     } finally {
-      setIsBulkUpdating(false);
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkRestoring(true);
+    try {
+      await bulkRestore({ profileIds: Array.from(selectedIds) as Id<"profiles">[] });
+      setSelectedIds(new Set());
+    } finally {
+      setIsBulkRestoring(false);
     }
   };
 
@@ -167,37 +184,53 @@ export default function ProfilesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-black">Profiles</h2>
-        <Link
-          href="/dashboard/profiles/hierarchy"
-          className="text-sm text-[#F2650C] font-semibold hover:underline"
-        >
-          View Hierarchy
-        </Link>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(e) => {
+                setShowDeleted(e.target.checked);
+                setSelectedIds(new Set());
+              }}
+            />
+            Show deleted
+          </label>
+          <Link
+            href="/dashboard/profiles/hierarchy"
+            className="text-sm text-[#F2650C] font-semibold hover:underline"
+          >
+            View Hierarchy
+          </Link>
+        </div>
       </div>
 
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 mb-4">
           <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
-          <button
-            onClick={() => handleBulkSetDisabled(true)}
-            disabled={isBulkUpdating}
-            className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {isBulkUpdating ? "Updating..." : `Delete Selected (${selectedIds.size})`}
-          </button>
-          <button
-            onClick={() => handleBulkSetDisabled(false)}
-            disabled={isBulkUpdating}
-            className="text-sm px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:border-[#F2650C] hover:text-[#F2650C] disabled:opacity-50"
-          >
-            {isBulkUpdating ? "Updating..." : `Re-activate Selected (${selectedIds.size})`}
-          </button>
+          {showDeleted ? (
+            <button
+              onClick={handleBulkRestore}
+              disabled={isBulkRestoring}
+              className="text-sm px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:border-[#F2650C] hover:text-[#F2650C] disabled:opacity-50"
+            >
+              {isBulkRestoring ? "Restoring..." : `Reactivate Selected (${selectedIds.size})`}
+            </button>
+          ) : (
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {isBulkDeleting ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
+            </button>
+          )}
         </div>
       )}
 
       <DataTable
         columns={columns}
-        data={profiles}
+        data={visibleProfiles}
         getRowId={(p) => p._id}
         searchPlaceholder="Search profiles..."
         storageKey="profiles-table"
@@ -205,28 +238,39 @@ export default function ProfilesPage() {
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
         onToggleAll={toggleAll}
-        actions={(row) => (
-          <ActionsMenu
-            items={[
-              { label: "Edit", onClick: () => setEditing(row) },
-              {
-                label: row.fullAccess ? "Revoke Access" : "Grant Access",
-                onClick: () => setFullAccess({ profileId: row._id, fullAccess: !row.fullAccess }),
-              },
-              {
-                label: row.isDisabled ? "Enable" : "Disable",
-                onClick: () => setDisabled({ profileId: row._id, isDisabled: !row.isDisabled }),
-              },
-              {
-                label: "Delete",
-                destructive: true,
-                onClick: () => {
-                  if (confirm(`Delete profile "${row.nickName}"?`)) deleteProfile({ profileId: row._id });
+        actions={(row) =>
+          showDeleted ? (
+            <div className="flex justify-end">
+              <button
+                onClick={() => bulkRestore({ profileIds: [row._id] })}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Reactivate
+              </button>
+            </div>
+          ) : (
+            <ActionsMenu
+              items={[
+                { label: "Edit", onClick: () => setEditing(row) },
+                {
+                  label: row.fullAccess ? "Revoke Access" : "Grant Access",
+                  onClick: () => setFullAccess({ profileId: row._id, fullAccess: !row.fullAccess }),
                 },
-              },
-            ]}
-          />
-        )}
+                {
+                  label: row.isDisabled ? "Enable" : "Disable",
+                  onClick: () => setDisabled({ profileId: row._id, isDisabled: !row.isDisabled }),
+                },
+                {
+                  label: "Delete",
+                  destructive: true,
+                  onClick: () => {
+                    if (confirm(`Delete profile "${row.nickName}"?`)) deleteProfile({ profileId: row._id });
+                  },
+                },
+              ]}
+            />
+          )
+        }
       />
 
       {editing && (

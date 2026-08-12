@@ -8,6 +8,8 @@ import { useRouter } from "expo-router";
 import { usePullReveal } from "../../../hooks/usePullReveal";
 import { useHeaderSearchButton } from "../../../hooks/useHeaderSearchButton";
 
+type SortMode = "recent" | "liked";
+
 export default function CalendarScreen() {
   const router = useRouter();
   const toggleEngagement = useMutation(api.engagements.toggleEngagement);
@@ -16,8 +18,10 @@ export default function CalendarScreen() {
   );
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [sort, setSort] = useState<SortMode>("recent");
   const [onlyStarred, setOnlyStarred] = useState(false);
   const [sortVisible, setSortVisible] = useState(false);
+  const activeFilterCount = (sort !== "recent" ? 1 : 0) + (onlyStarred ? 1 : 0);
   const { visible: searchVisible, toggle: toggleSearch } = usePullReveal();
   useHeaderSearchButton(searchVisible, toggleSearch);
 
@@ -36,6 +40,7 @@ export default function CalendarScreen() {
   const events = useQuery(api.events.calendarEvents, {
     startDate: startOfMonth.getTime(),
     endDate: endOfMonth.getTime(),
+    sortBy: sort,
     onlyStarred: onlyStarred || undefined,
   });
 
@@ -109,9 +114,9 @@ export default function CalendarScreen() {
             />
             <TouchableOpacity style={styles.filterIconBtn} onPress={() => setSortVisible(true)}>
               <Ionicons name="filter" size={18} color="#1C1B18" />
-              {onlyStarred && (
+              {activeFilterCount > 0 && (
                 <View style={styles.filterBadge}>
-                  <Text style={styles.filterBadgeText}>1</Text>
+                  <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -177,6 +182,22 @@ export default function CalendarScreen() {
               <Text style={styles.modalTitle}>Filter Events</Text>
               <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSortVisible(false)} hitSlop={8}>
                 <Ionicons name="close" size={20} color="#1C1B18" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Sort by</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, sort === "recent" && styles.chipActive]}
+                onPress={() => setSort("recent")}
+              >
+                <Text style={[styles.chipText, sort === "recent" && styles.chipTextActive]}>Most Recent</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, sort === "liked" && styles.chipActive]}
+                onPress={() => setSort("liked")}
+              >
+                <Text style={[styles.chipText, sort === "liked" && styles.chipTextActive]}>Most Liked</Text>
               </TouchableOpacity>
             </View>
 

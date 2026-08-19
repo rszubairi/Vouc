@@ -51,8 +51,8 @@ export default function CreateEventScreen() {
   const createEvent = useMutation(api.events.createEvent);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const directory = useQuery(api.profiles.listDirectory, {});
-  const languageOptions = useQuery(api.languages.list) ?? [];
-  const marketOptions = useQuery(api.markets.list) ?? [];
+  const languageOptions = useQuery(api.languages.list, {}) ?? [];
+  const marketOptions = useQuery(api.markets.list, {}) ?? [];
   const [submitting, setSubmitting] = useState(false);
 
   const [title, setTitle] = useState("");

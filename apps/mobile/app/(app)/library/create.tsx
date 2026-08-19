@@ -118,8 +118,8 @@ export default function CreateLibraryItemScreen() {
   const createLibraryItem = useMutation(api.library.createLibraryItem);
   const createKnowledgeHubItem = useMutation(api.knowledgeHub.createItem);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
-  const languageOptions = useQuery(api.languages.list) ?? [];
-  const marketOptions = useQuery(api.markets.list) ?? [];
+  const languageOptions = useQuery(api.languages.list, {}) ?? [];
+  const marketOptions = useQuery(api.markets.list, {}) ?? [];
   const [submitting, setSubmitting] = useState(false);
 
   const [subject, setSubject] = useState("");

@@ -137,7 +137,6 @@ export default function LibraryScreen() {
           <FlashList
             data={sortedCategories}
             keyExtractor={(c) => c._id}
-            estimatedItemSize={64}
             contentContainerStyle={styles.list}
             ListHeaderComponent={
               <TouchableOpacity style={styles.categoryCard} onPress={() => setViewAll(true)}>
@@ -217,7 +216,6 @@ export default function LibraryScreen() {
         <FlashList
           data={filteredItems}
           keyExtractor={(item) => item._id}
-          estimatedItemSize={100}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />

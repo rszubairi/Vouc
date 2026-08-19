@@ -83,8 +83,8 @@ const drawerIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 function drawerIcon(name: string) {
-  return ({ color, size }: { color: string; size: number }) => (
-    <Ionicons name={drawerIcons[name] ?? "help-circle-outline"} size={size} color={color} />
+  return ({ color, size }: { color: string | import("react-native").OpaqueColorValue; size: number }) => (
+    <Ionicons name={drawerIcons[name] ?? "help-circle-outline"} size={size} color={color as string} />
   );
 }
 

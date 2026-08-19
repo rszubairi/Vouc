@@ -286,7 +286,6 @@ export default function DiscussionsFeedScreen() {
           <FlashList
             data={sortedCategories}
             keyExtractor={(c) => c._id}
-            estimatedItemSize={64}
             contentContainerStyle={styles.list}
             ListHeaderComponent={
               <TouchableOpacity style={styles.categoryCard} onPress={() => setViewAll(true)}>
@@ -364,7 +363,6 @@ export default function DiscussionsFeedScreen() {
         <FlashList
           data={discussions}
           keyExtractor={(item) => item._id}
-          estimatedItemSize={180}
           renderItem={({ item }) => <DiscussionCard discussion={item as FeedDiscussion} />}
           contentContainerStyle={styles.list}
           refreshControl={

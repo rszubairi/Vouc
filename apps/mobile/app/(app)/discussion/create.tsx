@@ -90,8 +90,8 @@ export default function CreateDiscussionScreen() {
   const createDiscussion = useMutation(api.discussions.createDiscussion);
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const categories = useQuery(api.categories.list, { scope: "discussion" });
-  const languageOptions = useQuery(api.languages.list) ?? [];
-  const marketOptions = useQuery(api.markets.list) ?? [];
+  const languageOptions = useQuery(api.languages.list, {}) ?? [];
+  const marketOptions = useQuery(api.markets.list, {}) ?? [];
 
   const [topic, setTopic] = useState("");
   const [details, setDetails] = useState("");

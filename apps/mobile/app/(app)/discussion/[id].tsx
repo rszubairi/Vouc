@@ -31,6 +31,7 @@ import { WEB_APP_URL } from "../../../constants/links";
 import { ImageViewerModal } from "../../../components/ImageViewerModal";
 import { toExcerpt } from "../../../utils/text";
 import { Avatar } from "../../../components/Avatar";
+import { VideoPlayer } from "../../../components/VideoPlayer";
 
 type PendingAttachment = {
   storageId: Id<"_storage">;
@@ -392,12 +393,7 @@ export default function DiscussionDetailScreen() {
       />
 
       {/* Video links */}
-      {discussion.nonChinaVideoLink && (
-        <View style={styles.videoLink}>
-          <Text style={styles.videoLabel}>Video: </Text>
-          <Text style={styles.videoUrl} numberOfLines={1}>{discussion.nonChinaVideoLink}</Text>
-        </View>
-      )}
+      {discussion.nonChinaVideoLink && <VideoPlayer url={discussion.nonChinaVideoLink} />}
 
       {/* Engagement */}
       {(() => {

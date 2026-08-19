@@ -71,7 +71,6 @@ export default function NotificationsScreen() {
         <FlashList
           data={filteredNotifications}
           keyExtractor={(n) => n._id}
-          estimatedItemSize={70}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />
           }

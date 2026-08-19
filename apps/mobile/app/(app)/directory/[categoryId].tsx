@@ -128,7 +128,6 @@ export default function DirectoryCategoryScreen() {
         <FlashList
           data={filteredItems}
           keyExtractor={(item) => item._id}
-          estimatedItemSize={100}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1C1B18" />

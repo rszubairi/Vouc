@@ -21,6 +21,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
+import { VideoPlayer } from "../../../components/VideoPlayer";
 
 type QrTarget = { kind: "attendance" | "guest"; id: string; label: string };
 
@@ -284,6 +285,8 @@ export default function EventDetailScreen() {
           <Text style={styles.link}>{event.eventLink}</Text>
         </TouchableOpacity>
       )}
+
+      {event.nonChinaVideoLink && <VideoPlayer url={event.nonChinaVideoLink} />}
 
       <View style={styles.statsRow}>
         <View style={styles.statItem}>

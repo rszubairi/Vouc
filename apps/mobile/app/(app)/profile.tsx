@@ -27,8 +27,8 @@ export default function ProfileScreen() {
   const updateMyLanguages = useMutation(api.profiles.updateMyLanguages);
   const updateMyMarkets = useMutation(api.profiles.updateMyMarkets);
   const updateMyReferrer = useMutation(api.profiles.updateMyReferrer);
-  const languageOptions = useQuery(api.languages.list) ?? [];
-  const marketOptions = useQuery(api.markets.list) ?? [];
+  const languageOptions = useQuery(api.languages.list, {}) ?? [];
+  const marketOptions = useQuery(api.markets.list, {}) ?? [];
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 

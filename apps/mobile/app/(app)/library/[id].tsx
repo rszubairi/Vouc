@@ -20,6 +20,7 @@ import { ImageViewerModal } from "../../../components/ImageViewerModal";
 import { WEB_APP_URL } from "../../../constants/links";
 import { toExcerpt } from "../../../utils/text";
 import { Avatar } from "../../../components/Avatar";
+import { VideoPlayer } from "../../../components/VideoPlayer";
 
 export default function LibraryItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -103,11 +104,7 @@ export default function LibraryItemDetailScreen() {
         </TouchableOpacity>
       ))}
 
-      {item.nonChinaVideoLink && (
-        <TouchableOpacity onPress={() => Linking.openURL(item.nonChinaVideoLink!)}>
-          <Text style={styles.link}>Video: {item.nonChinaVideoLink}</Text>
-        </TouchableOpacity>
-      )}
+      {item.nonChinaVideoLink && <VideoPlayer url={item.nonChinaVideoLink} />}
 
       {item.documents.map((doc: { name: string; url: string }, i: number) => (
         <TouchableOpacity key={i} onPress={() => Linking.openURL(doc.url)} style={styles.docRow}>

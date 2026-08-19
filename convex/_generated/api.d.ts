@@ -18,6 +18,8 @@ import type * as digests from "../digests.js";
 import type * as directoryCategoriesData from "../directoryCategoriesData.js";
 import type * as discussions from "../discussions.js";
 import type * as divisions from "../divisions.js";
+import type * as email from "../email.js";
+import type * as emailTemplates from "../emailTemplates.js";
 import type * as engagements from "../engagements.js";
 import type * as eventTypes from "../eventTypes.js";
 import type * as events from "../events.js";
@@ -59,6 +61,8 @@ declare const fullApi: ApiFromModules<{
   directoryCategoriesData: typeof directoryCategoriesData;
   discussions: typeof discussions;
   divisions: typeof divisions;
+  email: typeof email;
+  emailTemplates: typeof emailTemplates;
   engagements: typeof engagements;
   eventTypes: typeof eventTypes;
   events: typeof events;

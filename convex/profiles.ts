@@ -25,9 +25,13 @@ export const me = query({
       .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
       .filter((q) => q.eq(q.field("isPrimary"), true))
       .first();
-    const profileImageUrl = image ? (await ctx.db.get(image.imageId))?.url ?? null : null;
+    const profileImageUrl = image
+      ? ((await ctx.db.get(image.imageId))?.url ?? null)
+      : null;
 
-    const sponsor = profile.sponsorId ? await ctx.db.get(profile.sponsorId) : null;
+    const sponsor = profile.sponsorId
+      ? await ctx.db.get(profile.sponsorId)
+      : null;
 
     const languageRows = await ctx.db
       .query("profileLanguages")
@@ -88,10 +92,14 @@ export const create = mutation({
     // Find sponsor by email
     const sponsor = await ctx.db
       .query("profiles")
-      .withIndex("by_email", (q) => q.eq("emailAddress", args.sponsorEmailAddress))
+      .withIndex("by_email", (q) =>
+        q.eq("emailAddress", args.sponsorEmailAddress),
+      )
       .first();
-    if (!sponsor) throw new Error("Sponsor not found. Check the sponsor email address.");
-    if (sponsor.deleteAccount) throw new Error("Sponsor account is not active.");
+    if (!sponsor)
+      throw new Error("Sponsor not found. Check the sponsor email address.");
+    if (sponsor.deleteAccount)
+      throw new Error("Sponsor account is not active.");
 
     // Prevent duplicate profile
     const existing = await ctx.db
@@ -115,6 +123,15 @@ export const create = mutation({
       country: args.country,
       fullAccess: false,
       deleteAccount: false,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+      event: {
+        kind: "sponsorPendingApproval",
+        to: sponsor.emailAddress,
+        sponsorName: sponsor.nickName,
+        newMemberName: `${args.firstName} ${args.lastName}`,
+      },
     });
 
     return profileId;
@@ -187,7 +204,10 @@ export const updateMyLanguages = mutation({
       await ctx.db.delete(row._id);
     }
     for (const language of languages) {
-      await ctx.db.insert("profileLanguages", { profileId: profile._id, language });
+      await ctx.db.insert("profileLanguages", {
+        profileId: profile._id,
+        language,
+      });
     }
   },
 });
@@ -247,15 +267,19 @@ export const updateMyReferrer = mutation({
         .filter((q) => q.eq(q.field("nickName"), trimmed))
         .first();
     }
-    if (!sponsor) throw new Error("No member found with that email or username.");
-    if (sponsor._id === profile._id) throw new Error("You can't refer yourself.");
+    if (!sponsor)
+      throw new Error("No member found with that email or username.");
+    if (sponsor._id === profile._id)
+      throw new Error("You can't refer yourself.");
 
     await ctx.db.patch(profile._id, {
       sponsorId: sponsor._id,
       sponsorApproved: false,
       sponsorEmailAddress: sponsor.emailAddress,
     });
-    await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId: profile._id });
+    await ctx.runMutation(internal.hierarchy.rebuildHierarchy, {
+      profileId: profile._id,
+    });
   },
 });
 
@@ -339,9 +363,13 @@ export const getById = query({
       .filter((q) => q.eq(q.field("isPrimary"), true))
       .first();
 
-    const imgUrl = image ? (await ctx.db.get(image.imageId))?.url ?? null : null;
+    const imgUrl = image
+      ? ((await ctx.db.get(image.imageId))?.url ?? null)
+      : null;
 
-    const sponsor = profile.sponsorId ? await ctx.db.get(profile.sponsorId) : null;
+    const sponsor = profile.sponsorId
+      ? await ctx.db.get(profile.sponsorId)
+      : null;
 
     const languageRows = await ctx.db
       .query("profileLanguages")
@@ -385,6 +413,14 @@ export const approveSponsor = mutation({
     // Rebuild hierarchy for the newly approved member
     await ctx.runMutation(internal.hierarchy.rebuildHierarchy, {
       profileId: downlineProfileId,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+      event: {
+        kind: "accountApproved",
+        to: target.emailAddress,
+        name: target.firstName,
+      },
     });
   },
 });
@@ -438,6 +474,14 @@ export const requestDeleteAccount = mutation({
       deleteAccount: true,
       deleteRequestDate: Date.now(),
     });
+
+    await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+      event: {
+        kind: "deleteAccountRequested",
+        to: profile.emailAddress,
+        name: profile.firstName,
+      },
+    });
   },
 });
 
@@ -445,7 +489,7 @@ export const requestDeleteAccount = mutation({
 export const listDirectory = query({
   args: {
     sort: v.optional(
-      v.union(v.literal("recent"), v.literal("liked"), v.literal("starred"))
+      v.union(v.literal("recent"), v.literal("liked"), v.literal("starred")),
     ),
   },
   handler: async (ctx, { sort = "recent" }) => {
@@ -458,9 +502,9 @@ export const listDirectory = query({
       .first();
     if (!callerProfile) throw new Error("Profile not found");
 
-    const profiles = (await ctx.db.query("profiles").order("desc").take(1000)).filter(
-      (p) => !p.deleteAccount && !p.isDisabled
-    );
+    const profiles = (
+      await ctx.db.query("profiles").order("desc").take(1000)
+    ).filter((p) => !p.deleteAccount && !p.isDisabled);
 
     const enriched = await Promise.all(
       profiles.map(async (p) => {
@@ -469,24 +513,46 @@ export const listDirectory = query({
           .withIndex("by_profileId", (q) => q.eq("profileId", p._id))
           .filter((q) => q.eq(q.field("isPrimary"), true))
           .first();
-        const profileImageUrl = image ? (await ctx.db.get(image.imageId))?.url ?? null : null;
+        const profileImageUrl = image
+          ? ((await ctx.db.get(image.imageId))?.url ?? null)
+          : null;
 
         return {
           ...p,
           profileImageUrl,
           likeCount: await countEngagement(ctx, "profile", p._id, "Like"),
           starCount: await countEngagement(ctx, "profile", p._id, "Star"),
-          isLiked: await isEngagedBy(ctx, "profile", p._id, "Like", callerProfile._id),
-          isStarred: await isEngagedBy(ctx, "profile", p._id, "Star", callerProfile._id),
-          sponsorName: p.sponsorId ? (await ctx.db.get(p.sponsorId))?.nickName ?? null : null,
+          isLiked: await isEngagedBy(
+            ctx,
+            "profile",
+            p._id,
+            "Like",
+            callerProfile._id,
+          ),
+          isStarred: await isEngagedBy(
+            ctx,
+            "profile",
+            p._id,
+            "Star",
+            callerProfile._id,
+          ),
+          sponsorName: p.sponsorId
+            ? ((await ctx.db.get(p.sponsorId))?.nickName ?? null)
+            : null,
         };
-      })
+      }),
     );
 
     if (sort === "liked") {
-      enriched.sort((a, b) => b.likeCount - a.likeCount || b._creationTime - a._creationTime);
+      enriched.sort(
+        (a, b) =>
+          b.likeCount - a.likeCount || b._creationTime - a._creationTime,
+      );
     } else if (sort === "starred") {
-      enriched.sort((a, b) => b.starCount - a.starCount || b._creationTime - a._creationTime);
+      enriched.sort(
+        (a, b) =>
+          b.starCount - a.starCount || b._creationTime - a._creationTime,
+      );
     } else {
       enriched.sort((a, b) => a.nickName.localeCompare(b.nickName));
     }
@@ -501,13 +567,15 @@ export const listAll = query({
   handler: async (ctx, { includeDeleted }) => {
     await requireAdmin(ctx);
     const allProfiles = await ctx.db.query("profiles").order("desc").take(1000);
-    const profiles = includeDeleted ? allProfiles : allProfiles.filter((p) => !p.deleteAccount);
+    const profiles = includeDeleted
+      ? allProfiles
+      : allProfiles.filter((p) => !p.deleteAccount);
 
     const sponsors = await Promise.all(
-      profiles.map((p) => (p.sponsorId ? ctx.db.get(p.sponsorId) : null))
+      profiles.map((p) => (p.sponsorId ? ctx.db.get(p.sponsorId) : null)),
     );
     const ranks = await Promise.all(
-      profiles.map((p) => (p.userRankId ? ctx.db.get(p.userRankId) : null))
+      profiles.map((p) => (p.userRankId ? ctx.db.get(p.userRankId) : null)),
     );
 
     return profiles.map((p, i) => ({
@@ -535,7 +603,7 @@ export const adminHierarchyTree = query({
       middleName: p.middleName,
       lastName: p.lastName,
       sponsorId: p.sponsorId,
-      sponsorName: p.sponsorId ? byId.get(p.sponsorId)?.nickName ?? "—" : "—",
+      sponsorName: p.sponsorId ? (byId.get(p.sponsorId)?.nickName ?? "—") : "—",
       sponsorApproved: p.sponsorApproved,
     }));
   },
@@ -584,7 +652,10 @@ export const adminUpdateProfile = mutation({
 
     await ctx.db.patch(profileId, updates);
 
-    if (updates.sponsorId !== undefined || updates.sponsorApproved !== undefined) {
+    if (
+      updates.sponsorId !== undefined ||
+      updates.sponsorApproved !== undefined
+    ) {
       await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId });
     }
   },
@@ -596,10 +667,12 @@ export const adminPendingApprovals = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const profiles = await ctx.db.query("profiles").order("desc").take(1000);
-    const pending = profiles.filter((p) => !p.sponsorApproved && !p.deleteAccount);
+    const pending = profiles.filter(
+      (p) => !p.sponsorApproved && !p.deleteAccount,
+    );
 
     const sponsors = await Promise.all(
-      pending.map((p) => (p.sponsorId ? ctx.db.get(p.sponsorId) : null))
+      pending.map((p) => (p.sponsorId ? ctx.db.get(p.sponsorId) : null)),
     );
 
     return pending.map((p, i) => ({
@@ -616,6 +689,17 @@ export const adminApprove = mutation({
     await requireAdmin(ctx);
     await ctx.db.patch(profileId, { sponsorApproved: true });
     await ctx.runMutation(internal.hierarchy.rebuildHierarchy, { profileId });
+
+    const target = await ctx.db.get(profileId);
+    if (target) {
+      await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+        event: {
+          kind: "accountApproved",
+          to: target.emailAddress,
+          name: target.firstName,
+        },
+      });
+    }
   },
 });
 
@@ -628,6 +712,17 @@ export const adminReject = mutation({
       deleteAccount: true,
       deleteRequestDate: Date.now(),
     });
+
+    const target = await ctx.db.get(profileId);
+    if (target) {
+      await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+        event: {
+          kind: "accountRejected",
+          to: target.emailAddress,
+          name: target.firstName,
+        },
+      });
+    }
   },
 });
 
@@ -649,6 +744,17 @@ export const adminDeleteProfile = mutation({
       deleteAccount: true,
       deleteRequestDate: Date.now(),
     });
+
+    const target = await ctx.db.get(profileId);
+    if (target) {
+      await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+        event: {
+          kind: "accountDeleted",
+          to: target.emailAddress,
+          name: target.firstName,
+        },
+      });
+    }
   },
 });
 
@@ -663,6 +769,16 @@ export const adminBulkDeleteProfiles = mutation({
         deleteAccount: true,
         deleteRequestDate: now,
       });
+      const target = await ctx.db.get(profileId);
+      if (target) {
+        await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+          event: {
+            kind: "accountDeleted",
+            to: target.emailAddress,
+            name: target.firstName,
+          },
+        });
+      }
     }
   },
 });
@@ -677,6 +793,16 @@ export const adminBulkRestoreProfiles = mutation({
         deleteAccount: false,
         deleteRequestDate: undefined,
       });
+      const target = await ctx.db.get(profileId);
+      if (target) {
+        await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+          event: {
+            kind: "accountRestored",
+            to: target.emailAddress,
+            name: target.firstName,
+          },
+        });
+      }
     }
   },
 });
@@ -692,6 +818,17 @@ export const adminSetDisabled = mutation({
       isDisabled,
       disabledAt: isDisabled ? Date.now() : undefined,
     });
+
+    const target = await ctx.db.get(profileId);
+    if (target) {
+      await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+        event: {
+          kind: isDisabled ? "accountDisabled" : "accountEnabled",
+          to: target.emailAddress,
+          name: target.firstName,
+        },
+      });
+    }
   },
 });
 
@@ -706,13 +843,26 @@ export const adminBulkSetDisabled = mutation({
         isDisabled,
         disabledAt: isDisabled ? now : undefined,
       });
+      const target = await ctx.db.get(profileId);
+      if (target) {
+        await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+          event: {
+            kind: isDisabled ? "accountDisabled" : "accountEnabled",
+            to: target.emailAddress,
+            name: target.firstName,
+          },
+        });
+      }
     }
   },
 });
 
 // Admin re-parents a profile to a new sponsor (used by hierarchy drag-and-drop).
 export const adminSetSponsor = mutation({
-  args: { profileId: v.id("profiles"), sponsorId: v.optional(v.id("profiles")) },
+  args: {
+    profileId: v.id("profiles"),
+    sponsorId: v.optional(v.id("profiles")),
+  },
   handler: async (ctx, { profileId, sponsorId }) => {
     await requireAdmin(ctx);
     if (sponsorId === profileId) {
@@ -729,10 +879,13 @@ export const adminSetSponsor = mutation({
           throw new Error("Cannot move a profile under its own downline.");
         }
         if (visited.has(current)) {
-          throw new Error("Sponsor chain contains a cycle; cannot resolve upline.");
+          throw new Error(
+            "Sponsor chain contains a cycle; cannot resolve upline.",
+          );
         }
         visited.add(current);
-        const currentProfile: { sponsorId?: Id<"profiles"> } | null = await ctx.db.get(current);
+        const currentProfile: { sponsorId?: Id<"profiles"> } | null =
+          await ctx.db.get(current);
         current = currentProfile?.sponsorId;
       }
     }
@@ -741,10 +894,14 @@ export const adminSetSponsor = mutation({
     // profileId's existing children keep their sponsorId untouched, so they
     // structurally stay under profileId — but their own cached upline now
     // needs to reflect the new ancestor chain above profileId.
-    await ctx.scheduler.runAfter(0, internal.hierarchy.cascadeRebuildDescendants, {
-      frontier: [profileId],
-      level: 1,
-    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.hierarchy.cascadeRebuildDescendants,
+      {
+        frontier: [profileId],
+        level: 1,
+      },
+    );
   },
 });
 

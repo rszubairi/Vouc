@@ -450,7 +450,11 @@ export default function EventDetailScreen() {
             </View>
           )}
           <View style={styles.qrImageWrap}>
-            <QRCode value={JSON.stringify({ kind: selectedQrTarget.kind, id: selectedQrTarget.id })} size={200} />
+            <QRCode
+              value={JSON.stringify({ kind: selectedQrTarget.kind, id: selectedQrTarget.id })}
+              size={200}
+              quietZone={16}
+            />
           </View>
         </View>
       )}

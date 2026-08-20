@@ -56,6 +56,7 @@ export default function CheckinScanScreen() {
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
+        autofocus="on"
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
         onBarcodeScanned={handleScan}
       />

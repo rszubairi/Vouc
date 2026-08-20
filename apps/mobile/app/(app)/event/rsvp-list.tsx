@@ -152,13 +152,6 @@ export default function RsvpListScreen() {
     navigation.setOptions({
       headerRight: () => (
         <View style={{ flexDirection: "row" }}>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: "/(app)/event/checkin-scan", params: { eventId } })}
-            hitSlop={10}
-            style={{ paddingHorizontal: 10 }}
-          >
-            <Ionicons name="qr-code-outline" size={22} color="#F2650C" />
-          </TouchableOpacity>
           <TouchableOpacity onPress={handleExport} disabled={exporting} hitSlop={10} style={{ paddingHorizontal: 10 }}>
             {exporting ? (
               <ActivityIndicator size="small" color="#F2650C" />

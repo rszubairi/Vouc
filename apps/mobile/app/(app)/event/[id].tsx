@@ -21,6 +21,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
+import * as ExpoLinking from "expo-linking";
 import { VideoPlayer } from "../../../components/VideoPlayer";
 
 type QrTarget = { kind: "attendance" | "guest"; id: string; label: string };
@@ -451,7 +452,9 @@ export default function EventDetailScreen() {
           )}
           <View style={styles.qrImageWrap}>
             <QRCode
-              value={JSON.stringify({ kind: selectedQrTarget.kind, id: selectedQrTarget.id })}
+              value={ExpoLinking.createURL("event/checkin", {
+                queryParams: { kind: selectedQrTarget.kind, id: selectedQrTarget.id },
+              })}
               size={200}
               quietZone={16}
             />
@@ -466,12 +469,6 @@ export default function EventDetailScreen() {
             onPress={() => router.push({ pathname: "/(app)/event/rsvp-list", params: { eventId: id } })}
           >
             <Text style={styles.hostActionBtnText}>Check Registration</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.hostActionBtn}
-            onPress={() => router.push({ pathname: "/(app)/event/checkin-scan", params: { eventId: id } })}
-          >
-            <Text style={styles.hostActionBtnText}>Scan QR</Text>
           </TouchableOpacity>
         </View>
       )}

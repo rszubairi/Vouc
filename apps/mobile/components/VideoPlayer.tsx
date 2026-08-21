@@ -1,6 +1,16 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
+import { Platform, View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
 import { WebView } from "react-native-webview";
+
+// YouTube's embed player blocks requests whose user agent doesn't look like a real
+// mobile browser, which react-native-webview's default UA does not. Spoofing a
+// standard Safari/Chrome UA avoids the "Video unavailable" (error 152) rejection.
+const YOUTUBE_USER_AGENT = Platform.select({
+  ios: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+  android:
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+  default: undefined,
+});
 
 function toYoutubeVideoId(url: string): string | null {
   try {
@@ -19,9 +29,11 @@ function toYoutubeVideoId(url: string): string | null {
   return null;
 }
 
-// YouTube's embed player rejects requests without a matching document origin when
-// loaded directly as a WebView `uri`, surfacing "Video player configuration error".
-// Wrapping it in an HTML page with a real origin/referrer avoids that check.
+// A bare top-level navigation to youtube.com/embed/... makes YouTube think the page
+// isn't actually embedded (error 153, "video player configuration error"), so the
+// request has to originate from an iframe on a real page. youtube-nocookie.com is used
+// instead of youtube.com to skip the consent.youtube.com cookie-consent redirect, which
+// WebView's stricter cookie/navigation handling can otherwise break.
 function youtubeEmbedHtml(videoId: string): string {
   return `
     <!DOCTYPE html>
@@ -32,7 +44,7 @@ function youtubeEmbedHtml(videoId: string): string {
       </head>
       <body>
         <iframe
-          src="https://www.youtube.com/embed/${videoId}?playsinline=1"
+          src="https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&origin=https://www.youtube-nocookie.com"
           allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen
         ></iframe>
@@ -56,7 +68,7 @@ export function VideoPlayer({ url }: { url: string }) {
   }
 
   const source = youtubeVideoId
-    ? { html: youtubeEmbedHtml(youtubeVideoId), baseUrl: "https://www.youtube.com" }
+    ? { html: youtubeEmbedHtml(youtubeVideoId), baseUrl: "https://www.youtube-nocookie.com" }
     : { uri: url };
 
   return (
@@ -67,6 +79,12 @@ export function VideoPlayer({ url }: { url: string }) {
         allowsFullscreenVideo
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
+        userAgent={youtubeVideoId ? YOUTUBE_USER_AGENT : undefined}
+        thirdPartyCookiesEnabled
+        sharedCookiesEnabled
+        domStorageEnabled
+        javaScriptEnabled
+        originWhitelist={["*"]}
         onError={() => setFailed(true)}
         onHttpError={() => setFailed(true)}
       />

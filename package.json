@@ -20,6 +20,7 @@
     "@auth/core": "^0.41.2",
     "@convex-dev/auth": "^0.0.94",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "stripe": "^17.7.0"
   }
 }

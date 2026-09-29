@@ -6,6 +6,8 @@ import {
 
 const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
 const isLoginRoute = createRouteMatcher(["/login"]);
+const isAccountRoute = createRouteMatcher(["/account(.*)"]);
+const isMemberLoginRoute = createRouteMatcher(["/member-login"]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const authenticated = await convexAuth.isAuthenticated();
@@ -15,6 +17,12 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   }
   if (isLoginRoute(request) && authenticated) {
     return nextjsMiddlewareRedirect(request, "/dashboard");
+  }
+  if (isAccountRoute(request) && !authenticated) {
+    return nextjsMiddlewareRedirect(request, "/member-login");
+  }
+  if (isMemberLoginRoute(request) && authenticated) {
+    return nextjsMiddlewareRedirect(request, "/account/profile");
   }
 });
 

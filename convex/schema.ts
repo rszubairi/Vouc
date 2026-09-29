@@ -570,6 +570,58 @@ export default defineSchema(
       .index("by_divisionId", ["divisionId"])
       .index("by_scope", ["scope"]),
 
+    // ─── Membership / Billing ───────────────────────────────────────────────
+
+    // One row per profile, upserted from Stripe webhook events. Drives
+    // profiles.fullAccess / fullAccessExpiryDate (see convex/payments.ts).
+    subscriptions: defineTable({
+      profileId: v.id("profiles"),
+      stripeCustomerId: v.string(),
+      stripeSubscriptionId: v.string(),
+      status: v.union(
+        v.literal("incomplete"),
+        v.literal("incomplete_expired"),
+        v.literal("trialing"),
+        v.literal("active"),
+        v.literal("past_due"),
+        v.literal("canceled"),
+        v.literal("unpaid"),
+        v.literal("paused")
+      ),
+      priceId: v.string(),
+      currentPeriodEnd: v.number(), // ms epoch
+      cancelAtPeriodEnd: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_profileId", ["profileId"])
+      .index("by_stripeCustomerId", ["stripeCustomerId"])
+      .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+
+    // Append-only payment history, populated by the Stripe webhook.
+    payments: defineTable({
+      profileId: v.id("profiles"),
+      stripeCustomerId: v.string(),
+      stripeInvoiceId: v.optional(v.string()),
+      stripeChargeId: v.optional(v.string()),
+      stripeSubscriptionId: v.optional(v.string()),
+      amount: v.number(), // smallest currency unit (e.g. cents)
+      currency: v.string(),
+      status: v.union(v.literal("paid"), v.literal("failed"), v.literal("refunded")),
+      paidAt: v.number(), // ms epoch
+      description: v.optional(v.string()),
+    })
+      .index("by_profileId", ["profileId"])
+      .index("by_stripeInvoiceId", ["stripeInvoiceId"]),
+
+    // Idempotency guard: Stripe redelivers webhook events on timeout/non-2xx,
+    // so each event id is recorded before it's acted on.
+    stripeEvents: defineTable({
+      stripeEventId: v.string(),
+      type: v.string(),
+      processedAt: v.number(),
+    }).index("by_stripeEventId", ["stripeEventId"]),
+
     // ─── Media ────────────────────────────────────────────────────────────────
 
     images: defineTable({

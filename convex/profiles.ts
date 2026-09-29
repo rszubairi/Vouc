@@ -726,12 +726,20 @@ export const adminReject = mutation({
   },
 });
 
-// Admin toggles a profile's full-access flag.
+// Admin toggles a profile's full-access flag, and optionally overrides its
+// expiry date (e.g. for manual comps independent of a Stripe subscription).
 export const adminSetFullAccess = mutation({
-  args: { profileId: v.id("profiles"), fullAccess: v.boolean() },
-  handler: async (ctx, { profileId, fullAccess }) => {
+  args: {
+    profileId: v.id("profiles"),
+    fullAccess: v.boolean(),
+    fullAccessExpiryDate: v.optional(v.number()),
+  },
+  handler: async (ctx, { profileId, fullAccess, fullAccessExpiryDate }) => {
     await requireAdmin(ctx);
-    await ctx.db.patch(profileId, { fullAccess });
+    await ctx.db.patch(profileId, {
+      fullAccess,
+      ...(fullAccessExpiryDate !== undefined ? { fullAccessExpiryDate } : {}),
+    });
   },
 });
 

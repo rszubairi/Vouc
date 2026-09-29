@@ -34,6 +34,7 @@ import type * as markets from "../markets.js";
 import type * as migrateDiscussions from "../migrateDiscussions.js";
 import type * as migration from "../migration.js";
 import type * as notifications from "../notifications.js";
+import type * as payments from "../payments.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
 import type * as ranks from "../ranks.js";
@@ -43,6 +44,7 @@ import type * as seedIrene from "../seedIrene.js";
 import type * as seedIreneMutation from "../seedIreneMutation.js";
 import type * as seedMutation from "../seedMutation.js";
 import type * as settings from "../settings.js";
+import type * as stripe from "../stripe.js";
 
 import type {
   ApiFromModules,
@@ -77,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   migrateDiscussions: typeof migrateDiscussions;
   migration: typeof migration;
   notifications: typeof notifications;
+  payments: typeof payments;
   profiles: typeof profiles;
   public: typeof public_;
   ranks: typeof ranks;
@@ -86,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   seedIreneMutation: typeof seedIreneMutation;
   seedMutation: typeof seedMutation;
   settings: typeof settings;
+  stripe: typeof stripe;
 }>;
 
 /**

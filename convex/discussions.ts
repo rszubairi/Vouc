@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { countEngagement, isEngagedBy } from "./engagements";
+import { hasProAccess } from "./appConfig";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -222,7 +223,7 @@ export const list = query({
     let allIds: Set<Id<"discussions">>;
     let visibilities: Array<{ discussionId: Id<"discussions">; isRead: boolean }>;
 
-    if (callerProfile.fullAccess) {
+    if (await hasProAccess(ctx, callerProfile)) {
       const all = await ctx.db
         .query("discussions")
         .filter((q: any) => q.eq(q.field("isDeleted"), false))
@@ -431,7 +432,7 @@ export const getDiscussion = query({
     // Scheduled (future-dated) posts stay hidden from everyone but their
     // author until due — mirrors the gating in `list`.
     const isOwnerCaller = callerProfile ? discussion.userId === callerProfile._id : false;
-    if (discussion.postDate > Date.now() && !isOwnerCaller && !callerProfile?.fullAccess) return null;
+    if (discussion.postDate > Date.now() && !isOwnerCaller && !(await hasProAccess(ctx, callerProfile))) return null;
 
     const creator = await ctx.db.get(discussion.userId);
     const creatorImage = creator

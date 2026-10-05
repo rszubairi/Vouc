@@ -100,10 +100,31 @@ export default function BillingPage() {
 
   const subscription = subscriptionData?.subscription ?? null;
   const isActive = subscriptionData?.fullAccess ?? false;
+  const betaModeEnabled = subscriptionData?.betaModeEnabled ?? false;
+  const inBetaGrace = betaModeEnabled && !isActive;
 
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-bold text-black mb-6">Billing</h1>
+
+      {inBetaGrace && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-6">
+          <p className="text-sm text-amber-900">
+            <span className="font-semibold">We&apos;re in beta.</span> All pro features are free for every
+            member right now — no subscription needed. You&apos;ll be prompted to subscribe once the beta
+            period ends.
+          </p>
+        </div>
+      )}
+
+      {!betaModeEnabled && !isActive && subscriptionData !== undefined && (
+        <div className="bg-orange-50 border border-[#F2650C]/30 rounded-xl p-4 mb-6">
+          <p className="text-sm text-orange-900">
+            <span className="font-semibold">Upgrade to continue enjoying pro features.</span> Subscribe below
+            to regain full access.
+          </p>
+        </div>
+      )}
 
       <div className="bg-[#F5EFE0] border border-black/10 rounded-xl p-6">
         <h2 className="text-sm font-bold text-black mb-3">Membership Status</h2>
@@ -115,7 +136,11 @@ export default function BillingPage() {
             <p className="text-sm text-gray-700 mb-1">
               Status:{" "}
               <span className="font-semibold text-black">
-                {subscription ? statusLabels[subscription.status] ?? subscription.status : "No active subscription"}
+                {inBetaGrace
+                  ? "Free during beta"
+                  : subscription
+                  ? statusLabels[subscription.status] ?? subscription.status
+                  : "No active subscription"}
               </span>
             </p>
             {isActive && (
@@ -128,7 +153,7 @@ export default function BillingPage() {
             )}
 
             <div className="flex gap-3 mt-4">
-              {!isActive && (
+              {!isActive && !inBetaGrace && (
                 <button onClick={handleSubscribe} disabled={redirecting} className={buttonClass}>
                   {redirecting ? "Redirecting..." : "Subscribe — Annual Membership"}
                 </button>

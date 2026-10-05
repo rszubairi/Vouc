@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import { requireAdmin } from "./adminAuth";
 import { Id } from "./_generated/dataModel";
 import { countEngagement, isEngagedBy } from "./engagements";
+import { hasProAccess } from "./appConfig";
 
 // Get the currently authenticated user's profile.
 export const me = query({
@@ -48,6 +49,7 @@ export const me = query({
       sponsorName: sponsor?.nickName ?? null,
       languages: languageRows.map((r) => r.language),
       markets: marketRows.map((r) => r.market),
+      hasProAccess: await hasProAccess(ctx, profile),
     };
   },
 });

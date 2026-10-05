@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { countEngagement, isEngagedBy } from "./engagements";
+import { hasProAccess } from "./appConfig";
 
 async function getCallerProfile(ctx: any) {
   const authUserId = await getAuthUserId(ctx);
@@ -111,7 +112,7 @@ export const listItems = query({
     ).map((r) => r.market);
 
     let itemIds: Set<Id<"libraryItems">>;
-    if (callerProfile.fullAccess) {
+    if (await hasProAccess(ctx, callerProfile)) {
       // Full-access accounts see every library item regardless of visibility records.
       const all = await ctx.db
         .query("libraryItems")
@@ -237,7 +238,7 @@ export const getItem = query({
     // Scheduled (future-dated) items stay hidden from everyone but their
     // author until due — mirrors the gating in `listItems`.
     const isOwnerCaller = callerProfile ? item.userId === callerProfile._id : false;
-    if (item.postDate > Date.now() && !isOwnerCaller && !callerProfile?.fullAccess) return null;
+    if (item.postDate > Date.now() && !isOwnerCaller && !(await hasProAccess(ctx, callerProfile))) return null;
 
     const creator = await ctx.db.get(item.userId);
     const creatorImage = creator

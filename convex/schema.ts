@@ -622,6 +622,13 @@ export default defineSchema(
       processedAt: v.number(),
     }).index("by_stripeEventId", ["stripeEventId"]),
 
+    // Single-row global app config (always .first()'d — never queried by key).
+    // betaModeEnabled: while true, every member gets pro-feature access for
+    // free regardless of profiles.fullAccess, without touching that field.
+    appConfig: defineTable({
+      betaModeEnabled: v.boolean(),
+    }),
+
     // ─── Media ────────────────────────────────────────────────────────────────
 
     images: defineTable({

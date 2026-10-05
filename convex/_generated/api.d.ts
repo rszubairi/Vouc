@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as _scratchTestHelper from "../_scratchTestHelper.js";
 import type * as admin from "../admin.js";
 import type * as adminAuth from "../adminAuth.js";
+import type * as appConfig from "../appConfig.js";
 import type * as auth from "../auth.js";
 import type * as categories from "../categories.js";
 import type * as contactUs from "../contactUs.js";
@@ -53,8 +55,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  _scratchTestHelper: typeof _scratchTestHelper;
   admin: typeof admin;
   adminAuth: typeof adminAuth;
+  appConfig: typeof appConfig;
   auth: typeof auth;
   categories: typeof categories;
   contactUs: typeof contactUs;

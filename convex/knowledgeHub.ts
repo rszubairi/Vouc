@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { countEngagement, isEngagedBy } from "./engagements";
+import { hasProAccess } from "./appConfig";
 
 // Knowledge Hub's own item store — separate from Directory's libraryItems
 // table so the two modules can never cross-contaminate data or routes.
@@ -83,7 +84,7 @@ export const listItems = query({
     ).map((r) => r.market);
 
     let itemIds: Set<Id<"knowledgeHubItems">>;
-    if (callerProfile.fullAccess) {
+    if (await hasProAccess(ctx, callerProfile)) {
       const all = await ctx.db
         .query("knowledgeHubItems")
         .filter((q) => q.eq(q.field("isDeleted"), false))
@@ -188,7 +189,7 @@ export const getItem = query({
     // Scheduled (future-dated) items stay hidden from everyone but their
     // author until due — mirrors the gating in `listItems`.
     const isOwnerCaller = callerProfile ? item.userId === callerProfile._id : false;
-    if (item.postDate > Date.now() && !isOwnerCaller && !callerProfile?.fullAccess) return null;
+    if (item.postDate > Date.now() && !isOwnerCaller && !(await hasProAccess(ctx, callerProfile))) return null;
 
     const creator = await ctx.db.get(item.userId);
     const creatorImage = creator

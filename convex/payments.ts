@@ -2,6 +2,7 @@ import { query, internalQuery, internalMutation, QueryCtx } from "./_generated/s
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
+import { getBetaModeEnabled } from "./appConfig";
 
 async function callerProfile(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
@@ -48,6 +49,7 @@ export const mySubscription = query({
       fullAccess: profile.fullAccess,
       fullAccessExpiryDate: profile.fullAccessExpiryDate ?? null,
       subscription,
+      betaModeEnabled: await getBetaModeEnabled(ctx),
     };
   },
 });

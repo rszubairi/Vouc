@@ -20,6 +20,19 @@ export default function SettingsPage() {
   const update = useMutation(api.settings.update);
   const remove = useMutation(api.settings.remove);
 
+  const betaModeEnabled = useQuery(api.appConfig.isBetaModeEnabled);
+  const setBetaMode = useMutation(api.appConfig.adminSetBetaMode);
+  const [togglingBeta, setTogglingBeta] = useState(false);
+
+  async function handleToggleBeta() {
+    setTogglingBeta(true);
+    try {
+      await setBetaMode({ betaModeEnabled: !betaModeEnabled });
+    } finally {
+      setTogglingBeta(false);
+    }
+  }
+
   const [editing, setEditing] = useState<Setting | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -33,6 +46,26 @@ export default function SettingsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-black">Settings</h2>
+      </div>
+
+      <div className="bg-[#F5EFE0] border border-black/10 rounded-xl p-6 mb-8 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-black">Beta Phase</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {betaModeEnabled
+              ? "Enabled — every member has free access to pro features, regardless of subscription."
+              : "Disabled — members without an active subscription will be prompted to upgrade."}
+          </p>
+        </div>
+        <button
+          onClick={handleToggleBeta}
+          disabled={betaModeEnabled === undefined || togglingBeta}
+          className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 ${
+            betaModeEnabled ? "bg-black text-white hover:bg-neutral-800" : "bg-white border border-black text-black hover:bg-black/5"
+          }`}
+        >
+          {togglingBeta ? "Updating..." : betaModeEnabled ? "Disable Beta Mode" : "Enable Beta Mode"}
+        </button>
       </div>
 
       <DataTable

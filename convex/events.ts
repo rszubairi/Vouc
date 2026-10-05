@@ -6,6 +6,7 @@ import { Id } from "./_generated/dataModel";
 import { parseLevel } from "./hierarchy";
 import { requireAdmin } from "./adminAuth";
 import { countEngagement, isEngagedBy } from "./engagements";
+import { hasProAccess } from "./appConfig";
 
 const attachmentInput = v.object({
   storageId: v.id("_storage"),
@@ -284,7 +285,7 @@ export const calendarEvents = query({
     ).map((r) => r.market);
 
     let eventIds: Set<Id<"events">>;
-    if (callerProfile.fullAccess) {
+    if (await hasProAccess(ctx, callerProfile)) {
       // Full-access accounts see every event regardless of visibility records.
       const all = await ctx.db.query("events").collect();
       eventIds = new Set(all.map((e) => e._id));

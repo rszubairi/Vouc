@@ -9,3 +9,15 @@ export const setTestState = internalMutation({
     await ctx.db.patch(profileId, { isAdmin, fullAccess });
   },
 });
+
+export const setBetaMode = internalMutation({
+  args: { betaModeEnabled: v.boolean() },
+  handler: async (ctx, { betaModeEnabled }) => {
+    const existing = await ctx.db.query("appConfig").first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { betaModeEnabled });
+    } else {
+      await ctx.db.insert("appConfig", { betaModeEnabled });
+    }
+  },
+});

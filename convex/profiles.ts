@@ -1,5 +1,5 @@
-import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { mutation, query, MutationCtx } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./adminAuth";
@@ -74,14 +74,87 @@ export const myAccountStatus = query({
   },
 });
 
-// Create a new profile at registration.
+export type RegistrationFields = {
+  nickName: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  emailAddress: string;
+  sponsorEmailAddress: string;
+  city: string;
+  country: string;
+  userRankId?: Id<"userRanks">;
+};
+
+// Insert the profile row for a newly registered auth user and notify their
+// referrer. Shared by the sign-up callback in auth.ts (which runs in the same
+// transaction as account creation, so a failure here rolls the account back)
+// and by `create` (used by the complete-profile screen).
+// Errors are ConvexErrors so their message reaches the client in production.
+export async function createProfileForUser(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  args: RegistrationFields,
+) {
+  // Find sponsor by email
+  const sponsor = await ctx.db
+    .query("profiles")
+    .withIndex("by_email", (q) =>
+      q.eq("emailAddress", args.sponsorEmailAddress),
+    )
+    .first();
+  if (!sponsor)
+    throw new ConvexError("Referrer not found. Check the referrer's email address.");
+  if (sponsor.deleteAccount)
+    throw new ConvexError("Referrer account is not active.");
+
+  // Prevent duplicate profile
+  const existing = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  if (existing) throw new ConvexError("Profile already exists for this account.");
+
+  const profileId = await ctx.db.insert("profiles", {
+    userId,
+    sponsorId: sponsor._id,
+    sponsorApproved: false, // awaits sponsor approval
+    userRankId: args.userRankId,
+    nickName: args.nickName,
+    firstName: args.firstName,
+    middleName: args.middleName,
+    lastName: args.lastName,
+    emailAddress: args.emailAddress,
+    sponsorEmailAddress: args.sponsorEmailAddress,
+    city: args.city,
+    country: args.country,
+    fullAccess: false,
+    deleteAccount: false,
+  });
+
+  await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
+    event: {
+      kind: "sponsorPendingApproval",
+      to: sponsor.emailAddress,
+      sponsorName: sponsor.nickName,
+      newMemberName: `${args.firstName} ${args.lastName}`,
+    },
+  });
+
+  return profileId;
+}
+
+// Create a profile for a signed-in user who doesn't have one yet (accounts
+// created before profile creation moved into sign-up, or older app builds).
+// New registrations create the profile inside the sign-up flow instead.
 export const create = mutation({
   args: {
     nickName: v.string(),
     firstName: v.string(),
     middleName: v.optional(v.string()),
     lastName: v.string(),
-    emailAddress: v.string(),
+    // Ignored when the auth account has an email; kept for older app builds.
+    emailAddress: v.optional(v.string()),
     sponsorEmailAddress: v.string(),
     city: v.string(),
     country: v.string(),
@@ -89,54 +162,16 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
-    if (!authUserId) throw new Error("Not authenticated");
+    if (!authUserId) throw new ConvexError("Not authenticated");
 
-    // Find sponsor by email
-    const sponsor = await ctx.db
-      .query("profiles")
-      .withIndex("by_email", (q) =>
-        q.eq("emailAddress", args.sponsorEmailAddress),
-      )
-      .first();
-    if (!sponsor)
-      throw new Error("Sponsor not found. Check the sponsor email address.");
-    if (sponsor.deleteAccount)
-      throw new Error("Sponsor account is not active.");
+    const user = await ctx.db.get(authUserId);
+    const emailAddress = user?.email ?? args.emailAddress;
+    if (!emailAddress) throw new ConvexError("Email address is required.");
 
-    // Prevent duplicate profile
-    const existing = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", authUserId))
-      .first();
-    if (existing) throw new Error("Profile already exists for this account.");
-
-    const profileId = await ctx.db.insert("profiles", {
-      userId: authUserId,
-      sponsorId: sponsor._id,
-      sponsorApproved: false, // awaits sponsor approval
-      userRankId: args.userRankId,
-      nickName: args.nickName,
-      firstName: args.firstName,
-      middleName: args.middleName,
-      lastName: args.lastName,
-      emailAddress: args.emailAddress,
-      sponsorEmailAddress: args.sponsorEmailAddress,
-      city: args.city,
-      country: args.country,
-      fullAccess: false,
-      deleteAccount: false,
+    return await createProfileForUser(ctx, authUserId, {
+      ...args,
+      emailAddress,
     });
-
-    await ctx.scheduler.runAfter(0, internal.email.sendEmailForEvent, {
-      event: {
-        kind: "sponsorPendingApproval",
-        to: sponsor.emailAddress,
-        sponsorName: sponsor.nickName,
-        newMemberName: `${args.firstName} ${args.lastName}`,
-      },
-    });
-
-    return profileId;
   },
 });
 

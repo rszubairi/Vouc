@@ -52,18 +52,28 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (isLoading || !onboardingLoaded) return;
     const inAuthGroup = segments[0] === "(auth)";
     const inOnboarding = segments[0] === "onboarding";
+    const inCompleteProfile = segments[0] === "complete-profile";
 
     if (!hasSeenOnboarding) {
       if (!inOnboarding) router.replace("/onboarding");
       return;
     }
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace("/(auth)/login");
-    } else if (isAuthenticated && inAuthGroup) {
+    if (!isAuthenticated) {
+      if (!inAuthGroup) router.replace("/(auth)/login");
+      return;
+    }
+
+    // Wait for the account status so a signed-in user without a profile is
+    // never routed into the app first.
+    if (accountStatus === undefined) return;
+
+    if (accountStatus === "no-profile") {
+      if (!inCompleteProfile) router.replace("/complete-profile");
+    } else if (inAuthGroup || inCompleteProfile) {
       router.replace("/(app)");
     }
-  }, [isAuthenticated, isLoading, segments, hasSeenOnboarding, onboardingLoaded]);
+  }, [isAuthenticated, isLoading, segments, hasSeenOnboarding, onboardingLoaded, accountStatus]);
 
   return (
     <>

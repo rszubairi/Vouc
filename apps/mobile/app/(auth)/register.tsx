@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -11,10 +10,9 @@ import {
   ScrollView,
 } from "react-native";
 import { useState } from "react";
-import { useRouter, Link } from "expo-router";
+import { Link } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { FormField as Field, errorMessage } from "../../components/FormField";
 
 const PASSWORD_HINT =
   "Min 8 chars · Uppercase · Lowercase · Number · Special character";
@@ -34,7 +32,7 @@ function validate(fields: {
   if (!fields.nickName.trim()) return "Nickname is required.";
   if (!fields.firstName.trim()) return "First name is required.";
   if (!fields.lastName.trim()) return "Last name is required.";
-  if (!fields.sponsorEmail.trim()) return "Sponsor email address is required.";
+  if (!fields.sponsorEmail.trim()) return "Referrer's email address is required.";
   if (!fields.email.trim()) return "Email address is required.";
   if (!fields.city.trim()) return "City is required.";
   if (!fields.country.trim()) return "Country is required.";
@@ -51,8 +49,6 @@ function validate(fields: {
 
 export default function RegisterScreen() {
   const { signIn } = useAuthActions();
-  const createProfile = useMutation(api.profiles.create);
-  const router = useRouter();
 
   const [nickName, setNickName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -88,16 +84,16 @@ export default function RegisterScreen() {
     try {
       setLoading(true);
 
-      // 1. Create auth account
-      await signIn("password", { email, password, flow: "signUp" });
-
-      // 2. Create profile record linked to the auth account
-      await createProfile({
+      // Creates the auth account and profile in one server transaction, so a
+      // failure (e.g. unknown referrer) leaves no half-registered account.
+      await signIn("password", {
+        email,
+        password,
+        flow: "signUp",
         nickName,
         firstName,
-        middleName: middleName || undefined,
+        middleName,
         lastName,
-        emailAddress: email,
         sponsorEmailAddress: sponsorEmail,
         city,
         country,
@@ -105,11 +101,10 @@ export default function RegisterScreen() {
 
       Alert.alert(
         "Registration successful",
-        "Your account is pending sponsor approval. You will be notified once approved.",
-        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
+        "Your account is pending referrer approval. You will be notified once approved."
       );
     } catch (err: any) {
-      Alert.alert("Registration failed", err.message ?? "Please try again.");
+      Alert.alert("Registration failed", errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -128,7 +123,7 @@ export default function RegisterScreen() {
         <Field label="Middle Name" value={middleName} onChangeText={setMiddleName} />
         <Field label="Last Name *" value={lastName} onChangeText={setLastName} />
         <Field
-          label="Sponsor's Email Address *"
+          label="Referrer's Email Address *"
           value={sponsorEmail}
           onChangeText={setSponsorEmail}
           keyboardType="email-address"
@@ -190,38 +185,6 @@ export default function RegisterScreen() {
   );
 }
 
-function Field({
-  label,
-  value,
-  onChangeText,
-  secureTextEntry,
-  keyboardType,
-  hint,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  secureTextEntry?: boolean;
-  keyboardType?: "email-address" | "default";
-  hint?: string;
-}) {
-  return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType ?? "default"}
-        autoCapitalize={keyboardType === "email-address" ? "none" : "words"}
-        placeholderTextColor="#999"
-      />
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   inner: { paddingHorizontal: 28, paddingTop: 60, paddingBottom: 40 },
@@ -231,19 +194,6 @@ const styles = StyleSheet.create({
     color: "#1C1B18",
     marginBottom: 28,
   },
-  fieldWrap: { marginBottom: 14 },
-  fieldLabel: { fontSize: 13, color: "#555", marginBottom: 4, fontWeight: "600" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: "#1C1B18",
-    backgroundColor: "#FAF5EA",
-  },
-  hint: { fontSize: 11, color: "#999", marginTop: 4 },
   checkRow: {
     flexDirection: "row",
     alignItems: "center",
